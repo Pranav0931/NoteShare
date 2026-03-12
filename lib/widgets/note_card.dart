@@ -78,22 +78,65 @@ class NoteCard extends StatelessWidget {
   }
 
   Widget _buildSubjectTag() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF136DEC).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        note.subject,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          fontFamily: 'Lexend',
-          color: Color(0xFF136DEC),
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF136DEC).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            note.subject,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Lexend',
+              color: Color(0xFF136DEC),
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _getFileTypeIcon(),
+                size: 12,
+                color: Colors.grey[600],
+              ),
+              const SizedBox(width: 4),
+              Text(
+                note.fileType.name.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Lexend',
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+
+  IconData _getFileTypeIcon() {
+    switch (note.fileType) {
+      case NoteFileType.pdf:
+        return Icons.picture_as_pdf;
+      case NoteFileType.image:
+        return Icons.image;
+      case NoteFileType.document:
+        return Icons.description;
+    }
   }
 
   Widget _buildUploaderInfo() {
@@ -125,6 +168,25 @@ class NoteCard extends StatelessWidget {
             color: Colors.grey[600],
           ),
         ),
+        if (note.uploaderBranch.isNotEmpty) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              note.uploaderBranch,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Lexend',
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

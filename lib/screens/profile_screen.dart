@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/note.dart';
+import '../models/user.dart' as app_model;
 import '../widgets/note_card.dart';
 import '../widgets/user_avatar.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../config/college_config.dart';
+import '../services/supabase_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -15,72 +18,45 @@ class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Sample user data
-  final _userName = 'Rahul Sharma';
-  final _university = 'RCOEM, Nagpur';
-  final _uploadCount = 23;
-  final _downloadCount = 156;
-  final _rating = 4.8;
-
-  // Sample uploaded notes
-  final List<Note> _uploadedNotes = [
-    Note(
-      id: '1',
-      title: 'Data Structures Complete Notes',
-      subject: 'Computer Science',
-      semester: '3rd Sem',
-      branch: 'CSE',
-      uploaderName: 'Rahul Sharma',
-      rating: 4.8,
-      downloadCount: 234,
-      uploadDate: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    Note(
-      id: '2',
-      title: 'Operating Systems Guide',
-      subject: 'Computer Science',
-      semester: '4th Sem',
-      branch: 'CSE',
-      uploaderName: 'Rahul Sharma',
-      rating: 4.6,
-      downloadCount: 189,
-      uploadDate: DateTime.now().subtract(const Duration(days: 10)),
-    ),
-  ];
-
-  // Sample saved notes
-  final List<Note> _savedNotes = [
-    Note(
-      id: '3',
-      title: 'Calculus II - Integration',
-      subject: 'Mathematics',
-      semester: '2nd Sem',
-      branch: 'All',
-      uploaderName: 'Priya Patel',
-      rating: 4.5,
-      downloadCount: 156,
-      isSaved: true,
-      uploadDate: DateTime.now().subtract(const Duration(days: 5)),
-    ),
-    Note(
-      id: '4',
-      title: 'Digital Electronics Notes',
-      subject: 'Electronics',
-      semester: '3rd Sem',
-      branch: 'ECE',
-      uploaderName: 'Amit Kumar',
-      rating: 4.7,
-      downloadCount: 198,
-      isSaved: true,
-      uploadDate: DateTime.now().subtract(const Duration(days: 7)),
-    ),
-  ];
+  app_model.User? _profile;
+  List<Note> _uploadedNotes = [];
+  List<Note> _savedNotes = [];
+  List<Note> _downloadedNotes = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    _loadProfile();
   }
+
+  Future<void> _loadProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final service = SupabaseService.instance;
+      final userId = service.currentUser?.id;
+      _profile = service.currentProfile;
+
+      if (userId != null) {
+        final uploaded = await service.getUserNotes(userId);
+        final saved = await service.getSavedNotes(userId);
+        final downloaded = await service.getDownloadedNotes(userId);
+        _uploadedNotes = uploaded;
+        _savedNotes = saved;
+        _downloadedNotes = downloaded;
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  String get _userName => _profile?.name ?? 'Student';
+  String get _college => _profile?.college ?? CollegeConfig.defaultCollegeName;
+  String get _branch => _profile?.branch ?? '';
+  String get _semester => _profile?.semester ?? '';
+  int get _uploadCount => _profile?.uploadCount ?? 0;
+  int get _downloadCount => _downloadedNotes.length;
+  double get _rating => _profile?.rating ?? 0.0;
 
   @override
   void dispose() {
@@ -90,6 +66,17 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: const Center(child: CircularProgressIndicator()),
+        bottomNavigationBar: BottomNavBar(
+          currentIndex: 4,
+          onTap: _onNavTap,
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
@@ -131,7 +118,37 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out', style: TextStyle(fontFamily: 'Lexend')),
+        content: const Text('Are you sure you want to sign out?',
+            style: TextStyle(fontFamily: 'Lexend')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Sign Out', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await SupabaseService.instance.signOut();
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      }
+    }
+  }
+
   Widget _buildHeader() {
+    final isAdmin = SupabaseService.instance.isAdmin;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -147,6 +164,26 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ),
           ),
+          if (isAdmin)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: () => Navigator.pushNamed(context, '/admin'),
+                icon: const Icon(Icons.admin_panel_settings),
+                color: const Color(0xFF136DEC),
+                tooltip: 'Admin Panel',
+              ),
+            ),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -159,9 +196,10 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
             child: IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.settings_outlined),
-              color: const Color(0xFF1A1A1A),
+              onPressed: _handleLogout,
+              icon: const Icon(Icons.logout_outlined),
+              color: Colors.red[400],
+              tooltip: 'Sign Out',
             ),
           ),
         ],
@@ -200,13 +238,43 @@ class _ProfileScreenState extends State<ProfileScreen>
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        _university,
+                        _college,
                         style: TextStyle(
                           fontSize: 14,
                           fontFamily: 'Lexend',
                           color: Colors.grey[600],
                         ),
                         overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF136DEC).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _branch,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Lexend',
+                          color: Color(0xFF136DEC),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _semester,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'Lexend',
+                        color: Colors.grey[500],
                       ),
                     ),
                   ],
@@ -344,6 +412,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         tabs: const [
           Tab(text: 'Uploaded'),
           Tab(text: 'Saved'),
+          Tab(text: 'Downloads'),
         ],
       ),
     );
@@ -355,6 +424,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       children: [
         _buildNotesList(_uploadedNotes),
         _buildNotesList(_savedNotes),
+        _buildNotesList(_downloadedNotes),
       ],
     );
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/note.dart';
 import '../widgets/user_avatar.dart';
+import '../services/supabase_service.dart';
 
 class NoteDetailsScreen extends StatefulWidget {
   const NoteDetailsScreen({super.key});
@@ -11,45 +13,108 @@ class NoteDetailsScreen extends StatefulWidget {
 
 class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
   bool _isSaved = false;
+  bool _isDownloading = false;
+  List<Review> _reviews = [];
+  bool _loadingReviews = true;
+  Note? _note;
 
-  // Sample reviews
-  final List<Map<String, dynamic>> _reviews = [
-    {
-      'name': 'John Doe',
-      'rating': 5.0,
-      'comment': 'Excellent notes! Very well organized and easy to understand.',
-      'date': '2 days ago',
-    },
-    {
-      'name': 'Jane Smith',
-      'rating': 4.0,
-      'comment': 'Good content but could use more examples.',
-      'date': '5 days ago',
-    },
-    {
-      'name': 'Mike Johnson',
-      'rating': 5.0,
-      'comment': 'Helped me ace my exam! Highly recommended.',
-      'date': '1 week ago',
-    },
-  ];
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_note == null) {
+      _note = ModalRoute.of(context)?.settings.arguments as Note? ??
+          Note(
+            id: '1',
+            title: 'Data Structures and Algorithms Complete Notes',
+            subject: 'Computer Science',
+            semester: '3rd Sem',
+            branch: 'CSE',
+            description: 'Comprehensive notes covering all DSA topics.',
+            uploaderName: 'Rahul Sharma',
+            rating: 4.8,
+            downloadCount: 234,
+            reviewCount: 45,
+            uploadDate: DateTime.now().subtract(const Duration(days: 2)),
+          );
+      _loadData();
+    }
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final service = SupabaseService.instance;
+      final userId = service.currentUser?.id;
+
+      // Check if saved
+      if (userId != null) {
+        _isSaved = await service.isNoteSaved(_note!.id, userId);
+      }
+
+      // Load reviews
+      _reviews = await service.getReviews(_note!.id);
+    } catch (_) {}
+    if (mounted) setState(() => _loadingReviews = false);
+  }
+
+  Future<void> _handleDownload() async {
+    final service = SupabaseService.instance;
+    final userId = service.currentUser?.id;
+    if (userId == null || _note == null) return;
+
+    setState(() => _isDownloading = true);
+    try {
+      await service.recordDownload(_note!.id, userId);
+      setState(() {
+        _note = _note!.copyWith(downloadCount: _note!.downloadCount + 1);
+      });
+
+      if (_note!.fileUrl != null && _note!.fileUrl!.isNotEmpty && mounted) {
+        final uri = Uri.parse(_note!.fileUrl!);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download failed')),
+        );
+      }
+    }
+    if (mounted) setState(() => _isDownloading = false);
+  }
+
+  Future<void> _handleSave() async {
+    final service = SupabaseService.instance;
+    final userId = service.currentUser?.id;
+    if (userId == null || _note == null) return;
+
+    try {
+      if (_isSaved) {
+        await service.unsaveNote(_note!.id, userId);
+      } else {
+        await service.saveNote(_note!.id, userId);
+      }
+      setState(() => _isSaved = !_isSaved);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
-    final note = ModalRoute.of(context)?.settings.arguments as Note? ??
+    final note = _note ?? (ModalRoute.of(context)?.settings.arguments as Note? ??
         Note(
           id: '1',
           title: 'Data Structures and Algorithms Complete Notes',
           subject: 'Computer Science',
           semester: '3rd Sem',
           branch: 'CSE',
-          description: 'Comprehensive notes covering all DSA topics including arrays, linked lists, trees, graphs, sorting, and searching algorithms.',
+          description: 'Comprehensive notes covering all DSA topics.',
           uploaderName: 'Rahul Sharma',
           rating: 4.8,
           downloadCount: 234,
           reviewCount: 45,
           uploadDate: DateTime.now().subtract(const Duration(days: 2)),
-        );
+        ));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -220,6 +285,33 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _getFileTypeIcon(note.fileType),
+                      size: 14,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      note.fileType.name.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'Lexend',
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -272,7 +364,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  note.uploaderName,
+                  'Uploaded by ${note.uploaderName}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -281,13 +373,46 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Uploaded ${_formatDate(note.uploadDate)}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontFamily: 'Lexend',
-                    color: Colors.grey[500],
-                  ),
+                Row(
+                  children: [
+                    if (note.uploaderBranch.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF136DEC).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          note.uploaderBranch,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Lexend',
+                            color: Color(0xFF136DEC),
+                          ),
+                        ),
+                      ),
+                    if (note.uploaderSemester.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        note.uploaderSemester,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'Lexend',
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    Text(
+                      '\u2022 ${_formatDate(note.uploadDate)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'Lexend',
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -321,6 +446,17 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
     return '${diff.inDays ~/ 7} week(s) ago';
   }
 
+  IconData _getFileTypeIcon(NoteFileType fileType) {
+    switch (fileType) {
+      case NoteFileType.pdf:
+        return Icons.picture_as_pdf;
+      case NoteFileType.image:
+        return Icons.image;
+      case NoteFileType.document:
+        return Icons.description;
+    }
+  }
+
   Widget _buildActionButtons(Note note) {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -330,7 +466,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
             child: SizedBox(
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: _isDownloading ? null : _handleDownload,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF136DEC),
                   foregroundColor: Colors.white,
@@ -339,7 +475,16 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: const Icon(Icons.download, size: 20),
+                icon: _isDownloading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.download, size: 20),
                 label: Text(
                   'Download (${note.downloadCount})',
                   style: const TextStyle(
@@ -355,9 +500,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
           SizedBox(
             height: 52,
             child: OutlinedButton(
-              onPressed: () {
-                setState(() => _isSaved = !_isSaved);
-              },
+              onPressed: _handleSave,
               style: OutlinedButton.styleFrom(
                 side: BorderSide(
                   color: _isSaved ? const Color(0xFF136DEC) : Colors.grey[300]!,
@@ -507,7 +650,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: _showWriteReviewDialog,
                 child: const Text(
                   'Write Review',
                   style: TextStyle(
@@ -519,13 +662,114 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          ..._reviews.map((review) => _buildReviewCard(review)),
+          if (_loadingReviews)
+            const Center(child: CircularProgressIndicator())
+          else if (_reviews.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'No reviews yet. Be the first!',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontFamily: 'Lexend',
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ),
+            )
+          else
+            ..._reviews.map((review) => _buildReviewCard(review)),
         ],
       ),
     );
   }
 
-  Widget _buildReviewCard(Map<String, dynamic> review) {
+  void _showWriteReviewDialog() {
+    double selectedRating = 5;
+    final commentController = TextEditingController();
+    bool submitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Write a Review', style: TextStyle(fontFamily: 'Lexend')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) {
+                  return IconButton(
+                    icon: Icon(
+                      i < selectedRating ? Icons.star : Icons.star_border,
+                      color: Colors.amber[600],
+                      size: 32,
+                    ),
+                    onPressed: () => setDialogState(() => selectedRating = i + 1.0),
+                  );
+                }),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: commentController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Share your thoughts...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      setDialogState(() => submitting = true);
+                      try {
+                        final service = SupabaseService.instance;
+                        final userId = service.currentUser?.id;
+                        final profile = service.currentProfile;
+                        if (userId == null || _note == null) return;
+
+                        await service.addReview(Review(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          noteId: _note!.id,
+                          reviewerId: userId,
+                          reviewerName: profile?.name ?? 'Anonymous',
+                          rating: selectedRating,
+                          comment: commentController.text.trim(),
+                          date: DateTime.now(),
+                        ));
+
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        // Reload reviews
+                        final reviews = await service.getReviews(_note!.id);
+                        setState(() => _reviews = reviews);
+                      } catch (_) {
+                        setDialogState(() => submitting = false);
+                      }
+                    },
+              child: submitting
+                  ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewCard(Review review) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -544,14 +788,14 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
         children: [
           Row(
             children: [
-              UserAvatar(name: review['name'], radius: 18),
+              UserAvatar(name: review.reviewerName, radius: 18),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      review['name'],
+                      review.reviewerName,
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -559,7 +803,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                       ),
                     ),
                     Text(
-                      review['date'],
+                      _formatDate(review.date),
                       style: TextStyle(
                         fontSize: 12,
                         fontFamily: 'Lexend',
@@ -574,7 +818,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                   Icon(Icons.star, size: 16, color: Colors.amber[600]),
                   const SizedBox(width: 4),
                   Text(
-                    review['rating'].toString(),
+                    review.rating.toStringAsFixed(1),
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -585,16 +829,18 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            review['comment'],
-            style: TextStyle(
-              fontSize: 14,
-              fontFamily: 'Lexend',
-              color: Colors.grey[700],
-              height: 1.5,
+          if (review.comment.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              review.comment,
+              style: TextStyle(
+                fontSize: 14,
+                fontFamily: 'Lexend',
+                color: Colors.grey[700],
+                height: 1.5,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

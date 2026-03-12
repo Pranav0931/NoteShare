@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../widgets/user_avatar.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../config/college_config.dart';
+import '../services/supabase_service.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -11,142 +13,51 @@ class LeaderboardScreen extends StatefulWidget {
 }
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
-  // Sample leaderboard data
-  final List<LeaderboardEntry> _leaderboard = [
-    LeaderboardEntry(
-      rank: 1,
-      user: User(
-        id: '1',
-        name: 'Priya Patel',
-        email: 'priya@email.com',
-        university: 'IIT Delhi',
-        uploadCount: 45,
-        points: 2450,
-      ),
-      points: 2450,
-    ),
-    LeaderboardEntry(
-      rank: 2,
-      user: User(
-        id: '2',
-        name: 'Rahul Sharma',
-        email: 'rahul@email.com',
-        university: 'RCOEM Nagpur',
-        uploadCount: 38,
-        points: 2180,
-      ),
-      points: 2180,
-    ),
-    LeaderboardEntry(
-      rank: 3,
-      user: User(
-        id: '3',
-        name: 'Amit Kumar',
-        email: 'amit@email.com',
-        university: 'NIT Trichy',
-        uploadCount: 34,
-        points: 1920,
-      ),
-      points: 1920,
-    ),
-    LeaderboardEntry(
-      rank: 4,
-      user: User(
-        id: '4',
-        name: 'Sneha Gupta',
-        email: 'sneha@email.com',
-        university: 'BITS Pilani',
-        uploadCount: 29,
-        points: 1650,
-      ),
-      points: 1650,
-    ),
-    LeaderboardEntry(
-      rank: 5,
-      user: User(
-        id: '5',
-        name: 'John Doe',
-        email: 'john@email.com',
-        university: 'VIT Vellore',
-        uploadCount: 25,
-        points: 1420,
-      ),
-      points: 1420,
-    ),
-    LeaderboardEntry(
-      rank: 6,
-      user: User(
-        id: '6',
-        name: 'Jane Smith',
-        email: 'jane@email.com',
-        university: 'IIIT Hyderabad',
-        uploadCount: 22,
-        points: 1280,
-      ),
-      points: 1280,
-    ),
-    LeaderboardEntry(
-      rank: 7,
-      user: User(
-        id: '7',
-        name: 'Mike Johnson',
-        email: 'mike@email.com',
-        university: 'DTU Delhi',
-        uploadCount: 20,
-        points: 1150,
-      ),
-      points: 1150,
-    ),
-    LeaderboardEntry(
-      rank: 8,
-      user: User(
-        id: '8',
-        name: 'Sara Williams',
-        email: 'sara@email.com',
-        university: 'NIT Warangal',
-        uploadCount: 18,
-        points: 1020,
-      ),
-      points: 1020,
-    ),
-    LeaderboardEntry(
-      rank: 9,
-      user: User(
-        id: '9',
-        name: 'Alex Brown',
-        email: 'alex@email.com',
-        university: 'IIIT Bangalore',
-        uploadCount: 16,
-        points: 920,
-      ),
-      points: 920,
-    ),
-    LeaderboardEntry(
-      rank: 10,
-      user: User(
-        id: '10',
-        name: 'Emily Davis',
-        email: 'emily@email.com',
-        university: 'NIT Surathkal',
-        uploadCount: 15,
-        points: 850,
-      ),
-      points: 850,
-    ),
-  ];
+  List<LeaderboardEntry> _leaderboard = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLeaderboard();
+  }
+
+  Future<void> _loadLeaderboard() async {
+    setState(() => _isLoading = true);
+    try {
+      final service = SupabaseService.instance;
+      final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeName;
+      _leaderboard = await service.getLeaderboard(college);
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildTopThree(),
-            Expanded(child: _buildLeaderboardList()),
-          ],
-        ),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _leaderboard.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.leaderboard_outlined, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text('No leaderboard data yet',
+                            style: TextStyle(fontFamily: 'Lexend', color: Colors.grey[500])),
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: [
+                      _buildHeader(),
+                      _buildTopThree(),
+                      Expanded(child: _buildLeaderboardList()),
+                    ],
+                  ),
       ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: 3,
@@ -176,15 +87,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _buildHeader() {
-    return const Padding(
-      padding: EdgeInsets.all(20),
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Leaderboard',
                   style: TextStyle(
                     fontSize: 26,
@@ -193,10 +104,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     color: Color(0xFF1A1A1A),
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Top Contributors',
-                  style: TextStyle(
+                  'Top Contributors \u2022 ${SupabaseService.instance.currentProfile?.college ?? CollegeConfig.defaultCollegeName}',
+                  style: const TextStyle(
                     fontSize: 14,
                     fontFamily: 'Lexend',
                     color: Color(0xFF666666),
@@ -411,7 +322,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  entry.user.university,
+                  '${entry.user.branch} \u2022 ${entry.user.uploadCount} uploads',
                   style: TextStyle(
                     fontSize: 12,
                     fontFamily: 'Lexend',

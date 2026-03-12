@@ -3,6 +3,8 @@ import '../models/note.dart';
 import '../widgets/note_card.dart';
 import '../widgets/filter_chip.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../config/college_config.dart';
+import '../services/supabase_service.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -16,70 +18,34 @@ class _SearchScreenState extends State<SearchScreen> {
   String? _selectedSubject;
   String? _selectedSemester;
   String? _selectedBranch;
+  bool _isLoading = false;
+  List<Note> _results = [];
+  bool _hasSearched = false;
 
-  final List<String> _subjects = [
-    'Computer Science',
-    'Mathematics',
-    'Physics',
-    'Electronics',
-    'Mechanical',
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _performSearch();
+  }
 
-  final List<String> _semesters = [
-    '1st Sem',
-    '2nd Sem',
-    '3rd Sem',
-    '4th Sem',
-    '5th Sem',
-    '6th Sem',
-    '7th Sem',
-    '8th Sem',
-  ];
-
-  final List<String> _branches = [
-    'CSE',
-    'ECE',
-    'ME',
-    'CE',
-    'EE',
-  ];
-
-  // Sample search results
-  final List<Note> _searchResults = [
-    Note(
-      id: '1',
-      title: 'Data Structures and Algorithms Complete Notes',
-      subject: 'Computer Science',
-      semester: '3rd Sem',
-      branch: 'CSE',
-      uploaderName: 'Rahul Sharma',
-      rating: 4.8,
-      downloadCount: 234,
-      uploadDate: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    Note(
-      id: '2',
-      title: 'Object Oriented Programming - Java',
-      subject: 'Computer Science',
-      semester: '3rd Sem',
-      branch: 'CSE',
-      uploaderName: 'Priya Patel',
-      rating: 4.6,
-      downloadCount: 198,
-      uploadDate: DateTime.now().subtract(const Duration(days: 4)),
-    ),
-    Note(
-      id: '3',
-      title: 'Database Management Systems',
-      subject: 'Computer Science',
-      semester: '4th Sem',
-      branch: 'CSE',
-      uploaderName: 'Amit Kumar',
-      rating: 4.7,
-      downloadCount: 267,
-      uploadDate: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-  ];
+  Future<void> _performSearch() async {
+    setState(() { _isLoading = true; });
+    try {
+      final service = SupabaseService.instance;
+      final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeId;
+      _results = await service.getNotes(
+        college: college,
+        subject: _selectedSubject,
+        semester: _selectedSemester,
+        branch: _selectedBranch,
+        keyword: _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null,
+      );
+      _hasSearched = true;
+    } catch (_) {
+      _results = [];
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
 
   @override
   void dispose() {
@@ -194,7 +160,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ? IconButton(
                     onPressed: () {
                       _searchController.clear();
-                      setState(() {});
+                      _performSearch();
                     },
                     icon: Icon(Icons.close, color: Colors.grey[400]),
                   )
@@ -205,7 +171,7 @@ class _SearchScreenState extends State<SearchScreen> {
               vertical: 16,
             ),
           ),
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => _performSearch(),
         ),
       ),
     );
@@ -222,8 +188,8 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: FilterDropdown(
                   label: 'Subject',
                   value: _selectedSubject,
-                  items: _subjects,
-                  onChanged: (value) => setState(() => _selectedSubject = value),
+                  items: CollegeConfig.subjects,
+                  onChanged: (value) { setState(() => _selectedSubject = value); _performSearch(); },
                 ),
               ),
               const SizedBox(width: 12),
@@ -231,8 +197,8 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: FilterDropdown(
                   label: 'Semester',
                   value: _selectedSemester,
-                  items: _semesters,
-                  onChanged: (value) => setState(() => _selectedSemester = value),
+                  items: CollegeConfig.semesters,
+                  onChanged: (value) { setState(() => _selectedSemester = value); _performSearch(); },
                 ),
               ),
             ],
@@ -241,16 +207,43 @@ class _SearchScreenState extends State<SearchScreen> {
           FilterDropdown(
             label: 'Branch',
             value: _selectedBranch,
-            items: _branches,
-            onChanged: (value) => setState(() => _selectedBranch = value),
+            items: CollegeConfig.branches,
+            onChanged: (value) { setState(() => _selectedBranch = value); _performSearch(); },
           ),
+          if (_selectedSubject != null || _selectedSemester != null || _selectedBranch != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedSubject = null;
+                    _selectedSemester = null;
+                    _selectedBranch = null;
+                  });
+                  _performSearch();
+                },
+                child: const Text(
+                  'Clear Filters',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'Lexend',
+                    color: Color(0xFF136DEC),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildResults() {
-    if (_searchResults.isEmpty) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF136DEC)));
+    }
+
+    if (_results.isEmpty && _hasSearched) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -272,9 +265,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: _searchResults.length,
+      itemCount: _results.length,
       itemBuilder: (context, index) {
-        final note = _searchResults[index];
+        final note = _results[index];
         return NoteCard(
           note: note,
           onTap: () {

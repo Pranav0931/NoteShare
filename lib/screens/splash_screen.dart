@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../config/supabase_config.dart';
+import '../services/supabase_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -37,12 +39,38 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigate to login after delay
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _navigateNext();
     });
+  }
+
+  Future<void> _navigateNext() async {
+    if (!SupabaseConfig.isConfigured) {
+      // Not configured — go to login (which will show a hint)
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+    final service = SupabaseService.instance;
+    final session = service.currentSession;
+
+    if (session == null) {
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+    // User is logged in — load their profile
+    try {
+      final profile = await service.loadCurrentProfile();
+      if (!mounted) return;
+      if (profile == null || profile.college.isEmpty) {
+        Navigator.pushReplacementNamed(context, '/college-setup');
+      } else {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (_) {
+      if (mounted) Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override
@@ -107,43 +135,10 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildLogo() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            color: const Color(0xFF136DEC),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF136DEC).withOpacity(0.3),
-                blurRadius: 30,
-                offset: const Offset(0, 15),
-              ),
-            ],
-          ),
-          child: const Center(
-            child: Icon(
-              Icons.share,
-              size: 56,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'NoteShare',
-          style: TextStyle(
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Lexend',
-            color: Color(0xFF1A1A1A),
-            letterSpacing: -0.5,
-          ),
-        ),
-      ],
+    return Image.asset(
+      'assets/images/app_logo.png',
+      width: 220,
+      height: 220,
     );
   }
 

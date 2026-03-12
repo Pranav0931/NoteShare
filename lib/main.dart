@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/supabase_config.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/college_setup_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/upload_screen.dart';
 import 'screens/note_details_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/leaderboard_screen.dart';
+import 'screens/exam_survival_screen.dart';
+import 'screens/admin_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -18,6 +23,14 @@ void main() {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+
+  if (SupabaseConfig.isConfigured) {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+  }
+
   runApp(const NoteShareApp());
 }
 
@@ -122,12 +135,15 @@ class NoteShareApp extends StatelessWidget {
     return {
       '/': (context) => const SplashScreen(),
       '/login': (context) => const LoginScreen(),
+      '/college-setup': (context) => const CollegeSetupScreen(),
       '/home': (context) => const HomeScreen(),
       '/search': (context) => const SearchScreen(),
       '/upload': (context) => const UploadScreen(),
       '/note-details': (context) => const NoteDetailsScreen(),
       '/profile': (context) => const ProfileScreen(),
       '/leaderboard': (context) => const LeaderboardScreen(),
+      '/exam-survival': (context) => const ExamSurvivalScreen(),
+      '/admin': (context) => const AdminScreen(),
     };
   }
 }

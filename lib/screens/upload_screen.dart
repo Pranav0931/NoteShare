@@ -1,4 +1,10 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
+import '../config/college_config.dart';
+import '../models/note.dart';
+import '../services/supabase_service.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -14,35 +20,12 @@ class _UploadScreenState extends State<UploadScreen> {
   String? _selectedSubject;
   String? _selectedSemester;
   String? _selectedBranch;
+  String? _selectedFileType;
+  String? _selectedCategory;
   bool _fileSelected = false;
   String _selectedFileName = '';
-
-  final List<String> _subjects = [
-    'Computer Science',
-    'Mathematics',
-    'Physics',
-    'Electronics',
-    'Mechanical',
-  ];
-
-  final List<String> _semesters = [
-    '1st Sem',
-    '2nd Sem',
-    '3rd Sem',
-    '4th Sem',
-    '5th Sem',
-    '6th Sem',
-    '7th Sem',
-    '8th Sem',
-  ];
-
-  final List<String> _branches = [
-    'CSE',
-    'ECE',
-    'ME',
-    'CE',
-    'EE',
-  ];
+  Uint8List? _fileBytes;
+  bool _isUploading = false;
 
   @override
   void dispose() {
@@ -84,7 +67,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       _buildDropdown(
                         label: 'Subject',
                         value: _selectedSubject,
-                        items: _subjects,
+                        items: CollegeConfig.subjects,
                         onChanged: (value) => setState(() => _selectedSubject = value),
                       ),
                       const SizedBox(height: 16),
@@ -94,7 +77,7 @@ class _UploadScreenState extends State<UploadScreen> {
                             child: _buildDropdown(
                               label: 'Semester',
                               value: _selectedSemester,
-                              items: _semesters,
+                              items: CollegeConfig.semesters,
                               onChanged: (value) => setState(() => _selectedSemester = value),
                             ),
                           ),
@@ -103,8 +86,30 @@ class _UploadScreenState extends State<UploadScreen> {
                             child: _buildDropdown(
                               label: 'Branch',
                               value: _selectedBranch,
-                              items: _branches,
+                              items: CollegeConfig.branches,
                               onChanged: (value) => setState(() => _selectedBranch = value),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDropdown(
+                              label: 'File Type',
+                              value: _selectedFileType,
+                              items: CollegeConfig.noteFileTypes,
+                              onChanged: (value) => setState(() => _selectedFileType = value),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildDropdown(
+                              label: 'Category',
+                              value: _selectedCategory,
+                              items: CollegeConfig.noteCategories,
+                              onChanged: (value) => setState(() => _selectedCategory = value),
                             ),
                           ),
                         ],
@@ -217,7 +222,7 @@ class _UploadScreenState extends State<UploadScreen> {
             Text(
               _fileSelected 
                   ? 'Tap to change file' 
-                  : 'PDF, DOC, DOCX up to 10MB',
+                  : 'PDF, Images, DOC, DOCX up to 10MB',
               style: TextStyle(
                 fontSize: 13,
                 fontFamily: 'Lexend',
@@ -230,12 +235,31 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  void _selectFile() {
-    // Simulating file selection
-    setState(() {
-      _fileSelected = true;
-      _selectedFileName = 'DSA_Notes_Chapter1.pdf';
-    });
+  Future<void> _selectFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        withData: true,
+      );
+      if (result != null && result.files.single.bytes != null) {
+        setState(() {
+          _fileSelected = true;
+          _selectedFileName = result.files.single.name;
+          _fileBytes = result.files.single.bytes!;
+
+          // Auto-detect file type from extension
+          final ext = p.extension(_selectedFileName).toLowerCase();
+          if (ext == '.pdf') {
+            _selectedFileType = 'PDF';
+          } else if (['.jpg', '.jpeg', '.png'].contains(ext)) {
+            _selectedFileType = 'Image';
+          } else {
+            _selectedFileType = 'Document';
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   Widget _buildTextField({
@@ -351,7 +375,7 @@ class _UploadScreenState extends State<UploadScreen> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: _publishNotes,
+        onPressed: _isUploading ? null : _publishNotes,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF136DEC),
           foregroundColor: Colors.white,
@@ -360,79 +384,127 @@ class _UploadScreenState extends State<UploadScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: const Text(
-          'Publish Notes',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'Lexend',
-          ),
-        ),
+        child: _isUploading
+            ? const SizedBox(
+                width: 24, height: 24,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : const Text(
+                'Publish Notes',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'Lexend',
+                ),
+              ),
       ),
     );
   }
 
-  void _publishNotes() {
-    if (_formKey.currentState!.validate()) {
-      // Show success dialog
+  Future<void> _publishNotes() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (!_fileSelected || _fileBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a file')),
+      );
+      return;
+    }
+
+    setState(() => _isUploading = true);
+
+    try {
+      final service = SupabaseService.instance;
+      final user = service.currentUser;
+      final profile = service.currentProfile;
+      if (user == null || profile == null) throw Exception('Not logged in');
+
+      // Upload file to storage
+      final ext = p.extension(_selectedFileName).toLowerCase();
+      final storagePath = '${profile.college}/${user.id}/${DateTime.now().millisecondsSinceEpoch}$ext';
+      final contentType = ext == '.pdf'
+          ? 'application/pdf'
+          : ['.jpg', '.jpeg', '.png'].contains(ext)
+              ? 'image/${ext.replaceAll('.', '')}'
+              : 'application/octet-stream';
+
+      final fileUrl = await service.uploadFile(storagePath, _fileBytes!, contentType);
+
+      // Map UI strings to enums
+      final fileType = _selectedFileType == 'PDF'
+          ? NoteFileType.pdf
+          : _selectedFileType == 'Image'
+              ? NoteFileType.image
+              : NoteFileType.document;
+      final category = _selectedCategory == 'Short Notes'
+          ? NoteCategory.shortNotes
+          : _selectedCategory == 'Important Questions'
+              ? NoteCategory.importantQuestions
+              : _selectedCategory == 'Previous Year Papers'
+                  ? NoteCategory.previousYearPapers
+                  : NoteCategory.regular;
+
+      final note = Note(
+        id: '', // Generated by Supabase
+        title: _titleController.text.trim(),
+        subject: _selectedSubject ?? '',
+        semester: _selectedSemester ?? '',
+        branch: _selectedBranch ?? profile.branch,
+        college: profile.college,
+        description: _descriptionController.text.trim(),
+        uploaderId: user.id,
+        uploaderName: profile.name,
+        uploaderAvatar: profile.avatarUrl,
+        uploaderBranch: profile.branch,
+        uploaderSemester: profile.semester,
+        fileUrl: fileUrl,
+        fileType: fileType,
+        status: NoteStatus.pending,
+        category: category,
+        uploadDate: DateTime.now(),
+      );
+
+      await service.uploadNote(note);
+
+      if (!mounted) return;
+      setState(() => _isUploading = false);
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF4CAF50),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check,
-                  color: Colors.white,
-                  size: 32,
-                ),
+                decoration: const BoxDecoration(color: Color(0xFF4CAF50), shape: BoxShape.circle),
+                child: const Icon(Icons.check, color: Colors.white, size: 32),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Notes Published!',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Lexend',
-                ),
-              ),
+              const Text('Notes Submitted!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Lexend')),
               const SizedBox(height: 8),
               Text(
-                'Your notes have been uploaded successfully.',
+                'Your notes are pending review.\nThey will appear in the feed once approved.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontFamily: 'Lexend', color: Colors.grey[600]),
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'Done',
-                style: TextStyle(
-                  fontFamily: 'Lexend',
-                  color: Color(0xFF136DEC),
-                ),
-              ),
+              onPressed: () { Navigator.pop(context); Navigator.pop(context); },
+              child: const Text('Done', style: TextStyle(fontFamily: 'Lexend', color: Color(0xFF136DEC))),
             ),
           ],
         ),
       );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: ${e.toString()}')),
+        );
+      }
     }
   }
 }
