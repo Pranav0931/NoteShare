@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/note.dart';
@@ -21,8 +22,16 @@ class SupabaseService {
   Session? get currentSession => _client.auth.currentSession;
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
-  Future<AuthResponse> signUpWithEmail(String email, String password) async {
-    final response = await _client.auth.signUp(email: email, password: password);
+  Future<AuthResponse> signUpWithEmail({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
+    final response = await _client.auth.signUp(
+      email: email,
+      password: password,
+      data: {'full_name': name},
+    );
     return response;
   }
 
@@ -37,22 +46,35 @@ class SupabaseService {
     return response;
   }
 
-  Future<void> signInWithGoogle() async {
+  Future<bool> signInWithGoogle() async {
     try {
-      await _client.auth.signInWithOAuth(
+      final result = await _client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'io.supabase.noteshare://login-callback/',
       );
-      
-      // Wait a moment for the session to be established
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Try to load the current user's profile
-      await loadCurrentProfile();
+      return result;
     } catch (e) {
-      print('Google sign-in error: $e');
+      developer.log('Google sign-in error', error: e, name: 'SupabaseService');
       rethrow;
     }
+  }
+
+  Future<void> resetPassword(String email) async {
+    await _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: 'io.supabase.noteshare://login-callback/',
+    );
+  }
+
+  /// Check if there's an active session and load profile if so.
+  /// Call this after returning from OAuth to verify login status.
+  Future<bool> checkAndLoadSession() async {
+    final session = currentSession;
+    if (session != null && currentUser != null) {
+      await loadCurrentProfile();
+      return true;
+    }
+    return false;
   }
 
   Future<void> signOut() async {
@@ -72,12 +94,11 @@ class SupabaseService {
 
   Future<void> upsertUserProfile(app.User user) async {
     try {
-      // Use the server-side function for safer insertion
       await _client.rpc('create_user_profile', params: {
         'user_id': user.id,
         'user_name': user.name,
         'user_email': user.email,
-        'user_college': user.college,
+        'user_college': user.college.isEmpty ? null : user.college,
         'user_branch': user.branch,
         'user_semester': user.semester,
       });
@@ -85,15 +106,22 @@ class SupabaseService {
         _currentProfile = user;
       }
     } catch (e) {
-      print('Error creating user profile: $e');
-      // Fallback to direct upsert if RPC fails
+      developer.log('Error creating user profile', error: e, name: 'SupabaseService');
       try {
-        await _client.from('users').upsert(user.toMap());
+        final data = user.toMap();
+        if (user.college.isEmpty) {
+          data['college'] = null;
+        }
+        await _client.from('users').upsert(data);
         if (user.id == currentUser?.id) {
           _currentProfile = user;
         }
       } catch (fallbackError) {
-        print('Fallback upsert also failed: $fallbackError');
+        developer.log(
+          'Fallback profile upsert failed',
+          error: fallbackError,
+          name: 'SupabaseService',
+        );
         rethrow;
       }
     }
@@ -214,7 +242,6 @@ class SupabaseService {
 
   Future<void> uploadNote(Note note) async {
     await _client.from('notes').insert(note.toMap());
-    // Update the user's upload count
     if (currentUser != null) {
       await _client.rpc('increment_upload_count', params: {'user_id_param': currentUser!.id});
       await loadCurrentProfile();
@@ -280,11 +307,11 @@ class SupabaseService {
   // ─── Saved Notes ──────────────────────────────────────────────
 
   Future<void> saveNote(String noteId, String userId) async {
-    await _client.from('saved_notes').insert({
+    await _client.from('saved_notes').upsert({
       'note_id': noteId,
       'user_id': userId,
       'saved_date': DateTime.now().toIso8601String(),
-    });
+    }, onConflict: 'note_id,user_id');
   }
 
   Future<void> unsaveNote(String noteId, String userId) async {
@@ -344,13 +371,6 @@ class SupabaseService {
 
   Future<void> addReview(Review review) async {
     await _client.from('reviews').insert(review.toMap());
-    // Update note's review count and average rating
-    final reviews = await getReviews(review.noteId);
-    final avgRating = reviews.fold<double>(0, (sum, r) => sum + r.rating) / reviews.length;
-    await _client.from('notes').update({
-      'review_count': reviews.length,
-      'rating': double.parse(avgRating.toStringAsFixed(1)),
-    }).eq('id', review.noteId);
   }
 
   Future<List<Review>> getReviews(String noteId) async {

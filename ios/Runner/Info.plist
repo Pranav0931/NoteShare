@@ -66,5 +66,19 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Supabase OAuth Deep Link -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>io.supabase.noteshare</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>io.supabase.noteshare</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

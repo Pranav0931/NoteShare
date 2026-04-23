@@ -43,6 +43,8 @@ class NoteShareApp extends StatelessWidget {
       title: 'NoteShare',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(),
+      darkTheme: _buildDarkTheme(),
+      themeMode: ThemeMode.system,
       initialRoute: '/',
       routes: _buildRoutes(),
     );
@@ -127,6 +129,47 @@ class NoteShareApp extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
         ),
         color: Colors.white,
+      ),
+    );
+  }
+
+  ThemeData _buildDarkTheme() {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF5B9BFF),
+      brightness: Brightness.dark,
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: const Color(0xFF0F172A),
+      textTheme: GoogleFonts.lexendTextTheme(ThemeData.dark().textTheme),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF111827),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF334155)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF334155)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: const Color(0xFF111827),
       ),
     );
   }

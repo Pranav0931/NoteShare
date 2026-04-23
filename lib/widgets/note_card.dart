@@ -150,7 +150,7 @@ class NoteCard extends StatelessWidget {
               : null,
           child: note.uploaderAvatar.isEmpty
               ? Text(
-                  note.uploaderName[0].toUpperCase(),
+                  note.uploaderName.isNotEmpty ? note.uploaderName[0].toUpperCase() : '?',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

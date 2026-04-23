@@ -42,7 +42,7 @@ class _ExamSurvivalScreenState extends State<ExamSurvivalScreen>
     setState(() => _isLoading = true);
     try {
       final service = SupabaseService.instance;
-      final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeName;
+      final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeId;
 
       final results = await Future.wait([
         service.getExamSurvivalNotes(college: college, branch: _selectedBranch, semester: _selectedSemester),

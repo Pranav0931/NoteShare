@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../services/supabase_service.dart';
 import '../models/user.dart' as app_model;
@@ -16,10 +18,82 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nameController = TextEditingController();
   bool _isSignUp = false;
   bool _isLoading = false;
+  bool _isCompletingAuth = false;
+  bool _obscurePassword = true;
   String? _error;
+  StreamSubscription<AuthState>? _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAuthListener();
+  }
+
+  void _setupAuthListener() {
+    if (!SupabaseConfig.isConfigured) return;
+
+    _authSubscription = SupabaseService.instance.authStateChanges.listen((data) {
+      final event = data.event;
+      if (event == AuthChangeEvent.signedIn) {
+        _handleAuthComplete();
+      }
+    });
+  }
+
+  Future<void> _handleAuthComplete() async {
+    if (!mounted || _isCompletingAuth) return;
+    _isCompletingAuth = true;
+
+    final service = SupabaseService.instance;
+    final user = service.currentUser;
+    if (user == null) {
+      _isCompletingAuth = false;
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      var profile = await service.loadCurrentProfile();
+
+      if (profile == null) {
+        final metadata = user.userMetadata;
+        final newProfile = app_model.User(
+          id: user.id,
+          name: _metadataString(metadata, 'full_name') ??
+              _metadataString(metadata, 'name') ??
+              user.email?.split('@').first ??
+              'Student',
+          email: user.email ?? '',
+          avatarUrl: _metadataString(metadata, 'avatar_url') ??
+              _metadataString(metadata, 'picture') ??
+              '',
+          college: '',
+          branch: '',
+          semester: '',
+        );
+        await service.upsertUserProfile(newProfile);
+        profile = await service.loadCurrentProfile();
+      }
+
+      if (!mounted) return;
+
+      if (profile == null || profile.college.isEmpty) {
+        Navigator.pushReplacementNamed(context, '/college-setup');
+      } else {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = _friendlyAuthError(e));
+    } finally {
+      _isCompletingAuth = false;
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
@@ -31,6 +105,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
     if (email.isEmpty || password.isEmpty) {
       setState(() => _error = 'Please enter email and password');
+      return;
+    }
+    if (!email.contains('@')) {
+      setState(() => _error = 'Please enter a valid email address');
+      return;
+    }
+    if (password.length < 6) {
+      setState(() => _error = 'Password must be at least 6 characters');
       return;
     }
     if (_isSignUp && _nameController.text.trim().isEmpty) {
@@ -47,7 +129,11 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final service = SupabaseService.instance;
       if (_isSignUp) {
-        final response = await service.signUpWithEmail(email, password);
+        final response = await service.signUpWithEmail(
+          email: email,
+          password: password,
+          name: _nameController.text.trim(),
+        );
         if (!mounted) return;
         if (response.user != null) {
           final user = app_model.User(
@@ -58,13 +144,9 @@ class _LoginScreenState extends State<LoginScreen> {
             branch: '',
             semester: '',
           );
-          try {
-            await service.upsertUserProfile(user);
-            await service.loadCurrentProfile();
-            if (mounted) Navigator.pushReplacementNamed(context, '/college-setup');
-          } catch (e) {
-            if (mounted) setState(() => _error = 'Failed to create profile: ${e.toString()}');
-          }
+          await service.upsertUserProfile(user);
+          await service.loadCurrentProfile();
+          if (mounted) Navigator.pushReplacementNamed(context, '/college-setup');
         } else {
           if (mounted) setState(() => _error = 'Sign-up failed. Try again.');
         }
@@ -79,7 +161,32 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } catch (e) {
-      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+      setState(() => _error = _friendlyAuthError(e));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = 'Enter your email first, then tap Forgot password');
+      return;
+    }
+    if (!SupabaseConfig.isConfigured) {
+      setState(() => _error = 'Supabase not configured. Update lib/config/supabase_config.dart');
+      return;
+    }
+
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      await SupabaseService.instance.resetPassword(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password reset email sent')),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _error = _friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -93,47 +200,26 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() { _isLoading = true; _error = null; });
     try {
       final service = SupabaseService.instance;
-      await service.signInWithGoogle();
-      
-      if (!mounted) return;
-      
-      // Wait for auth state to update
-      await Future.delayed(const Duration(seconds: 1));
-      
-      final profile = service.currentProfile;
-      
-      // If no profile exists yet (first time with Google), redirect to college setup
-      if (profile == null) {
-        final user = service.currentUser;
-        if (user != null) {
-          final newProfile = app_model.User(
-            id: user.id,
-            name: user.userMetadata?['full_name'] ?? '',
-            email: user.email ?? '',
-            college: '',
-            branch: '',
-            semester: '',
-          );
-          try {
-            await service.upsertUserProfile(newProfile);
-            if (mounted) Navigator.pushReplacementNamed(context, '/college-setup');
-          } catch (e) {
-            if (mounted) setState(() => _error = 'Failed to create profile: $e');
-          }
-        } else {
-          if (mounted) setState(() => _error = 'Google sign-in failed. No user found.');
+      final initiated = await service.signInWithGoogle();
+
+      if (!initiated) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _error = 'Could not start Google sign-in. Please try again.';
+          });
         }
-      } else if (profile.college.isEmpty) {
-        // Profile exists but college not set
-        if (mounted) Navigator.pushReplacementNamed(context, '/college-setup');
-      } else {
-        // Profile is complete
-        if (mounted) Navigator.pushReplacementNamed(context, '/home');
       }
+      // If initiated, the auth state listener (_setupAuthListener) will handle
+      // the redirect callback and complete the login flow.
+      // Keep loading state while waiting for redirect.
     } catch (e) {
-      setState(() => _error = 'Google sign-in failed: ${e.toString()}');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Google sign-in failed: ${e.toString()}';
+        });
+      }
     }
   }
 
@@ -229,6 +315,17 @@ class _LoginScreenState extends State<LoginScreen> {
           _buildInput(_emailController, 'Email', Icons.email_outlined),
           const SizedBox(height: 12),
           _buildInput(_passwordController, 'Password', Icons.lock_outline, obscure: true),
+          if (!_isSignUp)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _isLoading ? null : _handleForgotPassword,
+                child: const Text(
+                  'Forgot password?',
+                  style: TextStyle(fontFamily: 'Lexend', color: Color(0xFF136DEC)),
+                ),
+              ),
+            ),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -274,7 +371,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildInput(TextEditingController controller, String hint, IconData icon, {bool obscure = false}) {
     return TextField(
       controller: controller,
-      obscureText: obscure,
+      obscureText: obscure && _obscurePassword,
+      keyboardType: hint == 'Email' ? TextInputType.emailAddress : TextInputType.text,
+      textInputAction: obscure ? TextInputAction.done : TextInputAction.next,
+      autofillHints: hint == 'Email'
+          ? const [AutofillHints.email]
+          : obscure
+              ? const [AutofillHints.password]
+              : const [AutofillHints.name],
       style: const TextStyle(fontFamily: 'Lexend', fontSize: 15),
       decoration: InputDecoration(
         hintText: hint,
@@ -294,8 +398,18 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF136DEC), width: 2),
         ),
+        suffixIcon: obscure
+            ? IconButton(
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  color: Colors.grey[500],
+                ),
+              )
+            : null,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
+      onSubmitted: obscure ? (_) => _handleEmailAuth() : null,
     );
   }
 
@@ -355,6 +469,29 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ],
     );
+  }
+
+  String _friendlyAuthError(Object error) {
+    final raw = error.toString().replaceAll('Exception: ', '');
+    final lower = raw.toLowerCase();
+    if (lower.contains('invalid login credentials')) {
+      return 'Incorrect email or password';
+    }
+    if (lower.contains('email not confirmed')) {
+      return 'Please confirm your email before signing in';
+    }
+    if (lower.contains('already registered') || lower.contains('user already registered')) {
+      return 'An account with this email already exists';
+    }
+    if (lower.contains('network') || lower.contains('socket')) {
+      return 'Network error. Check your connection and try again';
+    }
+    return raw;
+  }
+
+  String? _metadataString(Map<String, dynamic>? metadata, String key) {
+    final value = metadata?[key];
+    return value is String && value.trim().isNotEmpty ? value.trim() : null;
   }
 }
 

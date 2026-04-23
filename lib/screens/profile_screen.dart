@@ -51,7 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   String get _userName => _profile?.name ?? 'Student';
-  String get _college => _profile?.college ?? CollegeConfig.defaultCollegeName;
+  String get _college => CollegeConfig.getCollegeName(_profile?.college);
   String get _branch => _profile?.branch ?? '';
   String get _semester => _profile?.semester ?? '';
   int get _uploadCount => _profile?.uploadCount ?? 0;

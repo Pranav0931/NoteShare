@@ -26,7 +26,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     setState(() => _isLoading = true);
     try {
       final service = SupabaseService.instance;
-      final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeName;
+      final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeId;
       _leaderboard = await service.getLeaderboard(college);
     } catch (_) {}
     if (mounted) setState(() => _isLoading = false);
@@ -106,7 +106,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Top Contributors \u2022 ${SupabaseService.instance.currentProfile?.college ?? CollegeConfig.defaultCollegeName}',
+                  'Top Contributors \u2022 ${CollegeConfig.getCollegeName(SupabaseService.instance.currentProfile?.college)}',
                   style: const TextStyle(
                     fontSize: 14,
                     fontFamily: 'Lexend',
@@ -187,7 +187,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 radius: isFirst ? 36 : 28,
                 backgroundColor: Colors.white,
                 child: Text(
-                  entry.user.name[0],
+                  entry.user.name.isNotEmpty ? entry.user.name[0] : '?',
                   style: TextStyle(
                     fontSize: isFirst ? 24 : 18,
                     fontWeight: FontWeight.bold,
@@ -215,7 +215,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          entry.user.name.split(' ')[0],
+          entry.user.name.isNotEmpty ? entry.user.name.split(' ')[0] : 'User',
           style: TextStyle(
             fontSize: isFirst ? 14 : 12,
             fontWeight: FontWeight.w600,

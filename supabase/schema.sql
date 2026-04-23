@@ -19,14 +19,15 @@ VALUES ('rcoem', 'RCOEM, Nagpur', 'Nagpur', 'Maharashtra')
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── USERS TABLE ────────────────────────────────────────────
+-- Note: college can be NULL for new users who haven't completed setup
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   avatar_url TEXT DEFAULT '',
-  college TEXT NOT NULL REFERENCES colleges(id),
-  branch TEXT NOT NULL,
-  semester TEXT NOT NULL,
+  college TEXT REFERENCES colleges(id),
+  branch TEXT NOT NULL DEFAULT '',
+  semester TEXT NOT NULL DEFAULT '',
   role TEXT NOT NULL DEFAULT 'student',          -- student | admin
   upload_count INT DEFAULT 0,
   download_count INT DEFAULT 0,
@@ -111,6 +112,28 @@ CREATE INDEX IF NOT EXISTS idx_reviews_note     ON reviews(note_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_reviewer ON reviews(reviewer_id);
 
 -- ─── HELPER FUNCTIONS ───────────────────────────────────────
+
+-- Create or update user profile (safe for RLS)
+CREATE OR REPLACE FUNCTION create_user_profile(
+  user_id UUID,
+  user_name TEXT,
+  user_email TEXT,
+  user_college TEXT DEFAULT NULL,
+  user_branch TEXT DEFAULT '',
+  user_semester TEXT DEFAULT ''
+)
+RETURNS VOID AS $$
+BEGIN
+  INSERT INTO users (id, name, email, college, branch, semester)
+  VALUES (user_id, user_name, user_email, user_college, user_branch, user_semester)
+  ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    email = EXCLUDED.email,
+    college = COALESCE(EXCLUDED.college, users.college),
+    branch = CASE WHEN EXCLUDED.branch = '' THEN users.branch ELSE EXCLUDED.branch END,
+    semester = CASE WHEN EXCLUDED.semester = '' THEN users.semester ELSE EXCLUDED.semester END;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Increment download count on a note
 CREATE OR REPLACE FUNCTION increment_download_count(note_id_param UUID)

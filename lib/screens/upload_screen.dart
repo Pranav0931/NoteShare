@@ -243,6 +243,13 @@ class _UploadScreenState extends State<UploadScreen> {
         withData: true,
       );
       if (result != null && result.files.single.bytes != null) {
+        if (result.files.single.size > 10 * 1024 * 1024) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please choose a file under 10MB')),
+          );
+          return;
+        }
         setState(() {
           _fileSelected = true;
           _selectedFileName = result.files.single.name;
@@ -409,6 +416,16 @@ class _UploadScreenState extends State<UploadScreen> {
       );
       return;
     }
+    if (_selectedSubject == null ||
+        _selectedSemester == null ||
+        _selectedBranch == null ||
+        _selectedFileType == null ||
+        _selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete all note details')),
+      );
+      return;
+    }
 
     setState(() => _isUploading = true);
 
@@ -424,7 +441,9 @@ class _UploadScreenState extends State<UploadScreen> {
       final contentType = ext == '.pdf'
           ? 'application/pdf'
           : ['.jpg', '.jpeg', '.png'].contains(ext)
-              ? 'image/${ext.replaceAll('.', '')}'
+              ? ext == '.jpg'
+                  ? 'image/jpeg'
+                  : 'image/${ext.replaceAll('.', '')}'
               : 'application/octet-stream';
 
       final fileUrl = await service.uploadFile(storagePath, _fileBytes!, contentType);

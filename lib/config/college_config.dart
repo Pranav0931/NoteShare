@@ -9,6 +9,16 @@ class CollegeConfig {
     // Future colleges can be added here
   ];
 
+  /// Get college name from ID. Returns default name if not found.
+  static String getCollegeName(String? collegeId) {
+    if (collegeId == null || collegeId.isEmpty) return defaultCollegeName;
+    final college = colleges.firstWhere(
+      (c) => c['id'] == collegeId,
+      orElse: () => {'name': defaultCollegeName},
+    );
+    return college['name'] ?? defaultCollegeName;
+  }
+
   static const List<String> branches = [
     'CSE',
     'ECE',

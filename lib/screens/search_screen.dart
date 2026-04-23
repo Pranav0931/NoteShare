@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/note.dart';
 import '../widgets/note_card.dart';
@@ -15,6 +16,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
   String? _selectedSubject;
   String? _selectedSemester;
   String? _selectedBranch;
@@ -29,6 +31,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _performSearch() async {
+    if (!mounted) return;
     setState(() { _isLoading = true; });
     try {
       final service = SupabaseService.instance;
@@ -49,8 +52,14 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _scheduleSearch() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), _performSearch);
   }
 
   @override
@@ -171,7 +180,7 @@ class _SearchScreenState extends State<SearchScreen> {
               vertical: 16,
             ),
           ),
-          onChanged: (_) => _performSearch(),
+          onChanged: (_) => setState(_scheduleSearch),
         ),
       ),
     );

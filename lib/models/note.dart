@@ -104,8 +104,7 @@ class Note {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
+    final data = <String, dynamic>{
       'title': title,
       'subject': subject,
       'semester': semester,
@@ -127,6 +126,12 @@ class Note {
       'status': status.name,
       'category': category.name,
     };
+
+    if (id.isNotEmpty) {
+      data['id'] = id;
+    }
+
+    return data;
   }
 
   factory Note.fromMap(Map<String, dynamic> map) {
@@ -187,8 +192,7 @@ class Review {
   });
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
+    final data = <String, dynamic>{
       'note_id': noteId,
       'reviewer_id': reviewerId,
       'reviewer_name': reviewerName,
@@ -197,6 +201,12 @@ class Review {
       'comment': comment,
       'date': date.toIso8601String(),
     };
+
+    if (id.isNotEmpty) {
+      data['id'] = id;
+    }
+
+    return data;
   }
 
   factory Review.fromMap(Map<String, dynamic> map) {

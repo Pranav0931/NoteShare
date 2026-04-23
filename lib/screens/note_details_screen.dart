@@ -739,7 +739,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                         if (userId == null || _note == null) return;
 
                         await service.addReview(Review(
-                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          id: '',
                           noteId: _note!.id,
                           reviewerId: userId,
                           reviewerName: profile?.name ?? 'Anonymous',
