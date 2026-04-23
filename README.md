@@ -1,8 +1,8 @@
 # NoteShare
 
-A Flutter + Supabase app where college students can **upload, discover, save, review, and download** academic notes in a moderated, campus-first library.
+A Flutter + Firebase app where college students can **upload, discover, save, review, and download** academic notes in a moderated, campus-first library.
 
-> **Status:** actively developed • **Platform:** Android-first (Flutter) • **Backend:** Supabase (Auth, Postgres, Storage, RLS)
+> **Status:** actively developed • **Platform:** Android-first (Flutter) • **Backend:** Firebase (Auth, Firestore) + External Link File Uploads
 
 ## Why NoteShare?
 Study material is usually scattered across WhatsApp groups, drive links, and random PDFs. NoteShare brings it into one place with:
@@ -19,7 +19,7 @@ Study material is usually scattered across WhatsApp groups, drive links, and ran
 - Email/password auth + Google OAuth (Android)
 - College profile setup (college / branch / semester)
 - Home feed of **approved** notes
-- Upload PDFs, images, DOC/DOCX to Supabase Storage
+- Upload external file links (Google Drive, Dropbox, etc.) to the platform
 - Save/unsave, download tracking
 - Rate & review notes
 - Profile: uploaded / saved / downloaded
@@ -45,10 +45,10 @@ Student upload → Pending review → Admin approval → Feed/Search
 | Mobile | Flutter |
 | Language | Dart (null safety) |
 | UI | Material Design 3 |
-| Auth | Supabase Auth |
-| DB | Supabase Postgres |
-| Storage | Supabase Storage |
-| Security | Row Level Security (RLS) policies |
+| Auth | Firebase Auth |
+| DB | Firebase Firestore |
+| Storage | External Link-based file uploads (zero-cost architecture) |
+| Security | Firestore Security Rules |
 
 ## Project Structure
 
@@ -57,7 +57,7 @@ lib/
   main.dart
   config/
     college_config.dart
-    supabase_config.dart
+    firebase_config.dart
   models/
     note.dart
     user.dart
@@ -74,31 +74,29 @@ lib/
     splash_screen.dart
     upload_screen.dart
   services/
-    supabase_service.dart
+    firebase_service.dart
   widgets/
     bottom_nav_bar.dart
     filter_chip.dart
     note_card.dart
     user_avatar.dart
 
-supabase/
-  schema.sql
+firebase/
+  firestore.rules
 ```
 
-## Supabase Schema
-The `supabase/schema.sql` includes (at a glance):
+## Firebase Firestore Schema
+The Firestore database includes collections like:
 
 - `colleges`, `users`, `notes`, `downloads`, `saved_notes`, `reviews`
-- RLS policies + helper functions/triggers (profile creation, counters, leaderboard recalculation, review rating trigger)
-- Storage bucket policies for `notes-files`
+- Firestore security rules for access control and moderation validation
 
 ## Getting Started
 
 ### Prerequisites
 - Flutter SDK
 - Android Studio / Android SDK
-- A Supabase project
-- Google Cloud OAuth credentials (only if using Google Sign-In)
+- A Firebase project
 
 ### Setup
 1. Clone:
@@ -114,46 +112,21 @@ The `supabase/schema.sql` includes (at a glance):
    flutter pub get
    ```
 
-3. Create a Supabase project.
+3. Create a Firebase project.
 
-4. Run the schema:
-   - Open Supabase SQL editor
-   - Execute `supabase/schema.sql`
+4. Add `google-services.json` to your `android/app/` directory (you can download it from the Firebase console).
 
-5. Ensure the `notes-files` storage bucket exists and is **public**.
-
-6. Provide Supabase credentials via Dart defines:
+5. Run the app:
 
    ```bash
-   export SUPABASE_URL="https://<your-project-ref>.supabase.co"
-   export SUPABASE_ANON_KEY="<your-anon-key>"
-
-   flutter run \
-     --dart-define=SUPABASE_URL=$SUPABASE_URL \
-     --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
-   ```
-
-7. Add this redirect URL in Supabase Auth settings:
-
-   ```text
-   io.supabase.noteshare://login-callback/
+   flutter run
    ```
 
 ## Google Sign-In (Android)
-1. **Android OAuth client** in Google Cloud Console:
-   - Package name: `com.noteshare.noteshare`
-   - Add SHA-1 fingerprint for your debug/release keystore
+1. In Firebase Console → Authentication → Sign-in method:
+   - Enable Google Sign-In.
 
-2. **Web OAuth client**:
-   - Authorized redirect URI:
-
-     ```text
-     https://<your-supabase-project-ref>.supabase.co/auth/v1/callback
-     ```
-
-3. In **Supabase Auth → Providers → Google**:
-   - Enable Google
-   - Paste Web client ID + secret
+2. Ensure you have added the SHA-1 and SHA-256 fingerprints to your Firebase Android app configuration.
 
 ## Roadmap (ideas)
 - Pagination for large feeds

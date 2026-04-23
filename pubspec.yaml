@@ -11,8 +11,12 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
   google_fonts: ^6.1.0
-  supabase_flutter: ^2.3.0
-  file_picker: ^8.0.0
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.6.0
+  cloud_firestore: ^5.6.7
+  # firebase_storage: ^12.4.4  # Re-enable when upgrading to Blaze plan
+  google_sign_in: ^6.3.0
+  # file_picker: ^8.0.0  # Re-enable with Firebase Storage
   path: ^1.9.0
   url_launcher: ^6.2.0
 

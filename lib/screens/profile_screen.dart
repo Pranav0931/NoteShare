@@ -5,7 +5,7 @@ import '../widgets/note_card.dart';
 import '../widgets/user_avatar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../config/college_config.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,6 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   List<Note> _savedNotes = [];
   List<Note> _downloadedNotes = [];
   bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -32,10 +33,11 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _loadProfile() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final service = SupabaseService.instance;
-      final userId = service.currentUser?.id;
+      final service = FirebaseService.instance;
+      final userId = service.currentUser?.uid;
       _profile = service.currentProfile;
 
       if (userId != null) {
@@ -46,7 +48,10 @@ class _ProfileScreenState extends State<ProfileScreen>
         _savedNotes = saved;
         _downloadedNotes = downloaded;
       }
-    } catch (_) {}
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -70,6 +75,40 @@ class _ProfileScreenState extends State<ProfileScreen>
       return Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         body: const Center(child: CircularProgressIndicator()),
+        bottomNavigationBar: BottomNavBar(
+          currentIndex: 4,
+          onTap: _onNavTap,
+        ),
+      );
+    }
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 12),
+                const Text(
+                  'Could not load profile',
+                  style: TextStyle(
+                    fontFamily: 'Lexend',
+                    fontSize: 16,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _loadProfile,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
         bottomNavigationBar: BottomNavBar(
           currentIndex: 4,
           onTap: _onNavTap,
@@ -140,7 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
 
     if (confirmed == true) {
-      await SupabaseService.instance.signOut();
+      await FirebaseService.instance.signOut();
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       }
@@ -148,7 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildHeader() {
-    final isAdmin = SupabaseService.instance.isAdmin;
+    final isAdmin = FirebaseService.instance.isAdmin;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Row(

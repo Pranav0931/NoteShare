@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../config/supabase_config.dart';
-import '../services/supabase_service.dart';
+import '../config/firebase_config.dart';
+import '../services/firebase_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -45,16 +45,16 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigateNext() async {
-    if (!SupabaseConfig.isConfigured) {
-      // Not configured — go to login (which will show a hint)
+    if (!FirebaseConfig.isReady) {
+      // Not initialized — go to login (which will show a hint)
       Navigator.pushReplacementNamed(context, '/login');
       return;
     }
 
-    final service = SupabaseService.instance;
-    final session = service.currentSession;
+    final service = FirebaseService.instance;
+    final user = service.currentUser;
 
-    if (session == null) {
+    if (user == null) {
       Navigator.pushReplacementNamed(context, '/login');
       return;
     }

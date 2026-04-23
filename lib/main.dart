@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:developer' as developer;
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'config/supabase_config.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'config/firebase_config.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/college_setup_screen.dart';
@@ -24,10 +25,16 @@ void main() async {
     ),
   );
 
-  if (SupabaseConfig.isConfigured) {
-    await Supabase.initialize(
-      url: SupabaseConfig.url,
-      anonKey: SupabaseConfig.anonKey,
+  try {
+    await Firebase.initializeApp();
+    FirebaseConfig.markInitialized();
+  } catch (e, st) {
+    FirebaseConfig.markInitializationFailed(e);
+    developer.log(
+      'Firebase initialization failed',
+      error: e,
+      stackTrace: st,
+      name: 'main',
     );
   }
 

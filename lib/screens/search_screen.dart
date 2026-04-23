@@ -5,7 +5,7 @@ import '../widgets/note_card.dart';
 import '../widgets/filter_chip.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../config/college_config.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -34,7 +34,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (!mounted) return;
     setState(() { _isLoading = true; });
     try {
-      final service = SupabaseService.instance;
+      final service = FirebaseService.instance;
       final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeId;
       _results = await service.getNotes(
         college: college,

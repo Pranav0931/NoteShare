@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "679519302627",
+    "project_id": "noteshare-2d0b6",
+    "storage_bucket": "noteshare-2d0b6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:679519302627:android:fae047f02ea03dfcbe66d6",
+        "android_client_info": {
+          "package_name": "com.noteshare.noteshare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5jIQXfjB48hNaZ6F1QqkvB640kCmcLwA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

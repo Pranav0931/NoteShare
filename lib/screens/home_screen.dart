@@ -4,7 +4,7 @@ import '../widgets/note_card.dart';
 import '../widgets/filter_chip.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../config/college_config.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,22 +33,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadNotes() async {
+    if (!mounted) return;
     setState(() { _isLoading = true; _error = null; });
     try {
-      final service = SupabaseService.instance;
+      final service = FirebaseService.instance;
       final profile = service.currentProfile;
       final college = profile?.college ?? CollegeConfig.defaultCollegeId;
       _notes = await service.getNotes(college: college);
+      if (!mounted) return;
       setState(() => _isLoading = false);
     } catch (e) {
+      if (!mounted) return;
       setState(() { _isLoading = false; _error = e.toString(); });
     }
   }
 
   Future<void> _toggleSave(Note note) async {
     try {
-      final service = SupabaseService.instance;
-      final userId = service.currentUser?.id;
+      final service = FirebaseService.instance;
+      final userId = service.currentUser?.uid;
       if (userId == null) return;
 
       final idx = _notes.indexWhere((n) => n.id == note.id);
@@ -59,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         await service.saveNote(note.id, userId);
       }
+      if (!mounted) return;
       setState(() {
         _notes[idx] = note.copyWith(isSaved: !note.isSaved);
       });

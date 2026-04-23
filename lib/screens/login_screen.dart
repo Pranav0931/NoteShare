@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../config/supabase_config.dart';
-import '../services/supabase_service.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import '../config/firebase_config.dart';
+import '../services/firebase_service.dart';
 import '../models/user.dart' as app_model;
 
 class LoginScreen extends StatefulWidget {
@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isCompletingAuth = false;
   bool _obscurePassword = true;
   String? _error;
-  StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<fb_auth.User?>? _authSubscription;
 
   @override
   void initState() {
@@ -33,11 +33,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _setupAuthListener() {
-    if (!SupabaseConfig.isConfigured) return;
+    if (!FirebaseConfig.isReady) return;
 
-    _authSubscription = SupabaseService.instance.authStateChanges.listen((data) {
-      final event = data.event;
-      if (event == AuthChangeEvent.signedIn) {
+    _authSubscription = FirebaseService.instance.authStateChanges.listen((user) {
+      if (user != null) {
         _handleAuthComplete();
       }
     });
@@ -47,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted || _isCompletingAuth) return;
     _isCompletingAuth = true;
 
-    final service = SupabaseService.instance;
+    final service = FirebaseService.instance;
     final user = service.currentUser;
     if (user == null) {
       _isCompletingAuth = false;
@@ -60,17 +59,13 @@ class _LoginScreenState extends State<LoginScreen> {
       var profile = await service.loadCurrentProfile();
 
       if (profile == null) {
-        final metadata = user.userMetadata;
         final newProfile = app_model.User(
-          id: user.id,
-          name: _metadataString(metadata, 'full_name') ??
-              _metadataString(metadata, 'name') ??
+          id: user.uid,
+          name: user.displayName ??
               user.email?.split('@').first ??
               'Student',
           email: user.email ?? '',
-          avatarUrl: _metadataString(metadata, 'avatar_url') ??
-              _metadataString(metadata, 'picture') ??
-              '',
+          avatarUrl: user.photoURL ?? '',
           college: '',
           branch: '',
           semester: '',
@@ -122,25 +117,25 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = 'Please enter your name');
       return;
     }
-    if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'App configuration is missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
+    if (!FirebaseConfig.isReady) {
+      setState(() => _error = _configurationErrorMessage());
       return;
     }
 
     setState(() { _isLoading = true; _error = null; });
 
     try {
-      final service = SupabaseService.instance;
+      final service = FirebaseService.instance;
       if (_isSignUp) {
-        final response = await service.signUpWithEmail(
+        final credential = await service.signUpWithEmail(
           email: email,
           password: password,
           name: _nameController.text.trim(),
         );
         if (!mounted) return;
-        if (response.user != null) {
+        if (credential.user != null) {
           final user = app_model.User(
-            id: response.user!.id,
+            id: credential.user!.uid,
             name: _nameController.text.trim(),
             email: email,
             college: '',
@@ -164,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } catch (e) {
-      setState(() => _error = _friendlyAuthError(e));
+      if (mounted) setState(() => _error = _friendlyAuthError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -176,14 +171,14 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = 'Enter your email first, then tap Forgot password');
       return;
     }
-    if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'App configuration is missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
+    if (!FirebaseConfig.isReady) {
+      setState(() => _error = _configurationErrorMessage());
       return;
     }
 
     setState(() { _isLoading = true; _error = null; });
     try {
-      await SupabaseService.instance.resetPassword(email);
+      await FirebaseService.instance.resetPassword(email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password reset email sent')),
@@ -196,26 +191,30 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleGoogleAuth() async {
-    if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'App configuration is missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
+    if (!FirebaseConfig.isReady) {
+      setState(() => _error = _configurationErrorMessage());
       return;
     }
     setState(() { _isLoading = true; _error = null; });
     try {
-      final service = SupabaseService.instance;
-      final initiated = await service.signInWithGoogle();
+      final service = FirebaseService.instance;
+      final credential = await service.signInWithGoogle();
 
-      if (!initiated) {
+      if (credential == null) {
+        // User cancelled Google sign-in
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _error = 'Could not start Google sign-in. Please try again.';
           });
         }
+        return;
       }
-      // If initiated, the auth state listener (_setupAuthListener) will handle
-      // the redirect callback and complete the login flow.
-      // Keep loading state while waiting for redirect.
+
+      // Auth state listener will handle navigation,
+      // but if it doesn't fire (already signed in), handle directly
+      if (credential.user != null && mounted) {
+        await _handleAuthComplete();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -426,11 +425,7 @@ class _LoginScreenState extends State<LoginScreen> {
           side: BorderSide(color: Colors.grey[300]!),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        icon: Image.network(
-          'https://www.google.com/favicon.ico',
-          width: 24, height: 24,
-          errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24, color: Color(0xFF136DEC)),
-        ),
+        icon: const Icon(Icons.g_mobiledata, size: 24, color: Color(0xFF136DEC)),
         label: const Text(
           'Continue with Google',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, fontFamily: 'Lexend', color: Color(0xFF1A1A1A)),
@@ -477,23 +472,32 @@ class _LoginScreenState extends State<LoginScreen> {
   String _friendlyAuthError(Object error) {
     final raw = error.toString().replaceAll('Exception: ', '');
     final lower = raw.toLowerCase();
-    if (lower.contains('invalid login credentials')) {
+    if (lower.contains('invalid-credential') || lower.contains('wrong-password') || lower.contains('user-not-found')) {
       return 'Incorrect email or password';
     }
-    if (lower.contains('email not confirmed')) {
-      return 'Please confirm your email before signing in';
-    }
-    if (lower.contains('already registered') || lower.contains('user already registered')) {
+    if (lower.contains('email-already-in-use')) {
       return 'An account with this email already exists';
+    }
+    if (lower.contains('weak-password')) {
+      return 'Password is too weak. Use at least 6 characters';
+    }
+    if (lower.contains('too-many-requests')) {
+      return 'Too many attempts. Please try again later';
     }
     if (lower.contains('network') || lower.contains('socket')) {
       return 'Network error. Check your connection and try again';
     }
+    if (lower.contains('invalid-email')) {
+      return 'Please enter a valid email address';
+    }
     return raw;
   }
 
-  String? _metadataString(Map<String, dynamic>? metadata, String key) {
-    final value = metadata?[key];
-    return value is String && value.trim().isNotEmpty ? value.trim() : null;
+  String _configurationErrorMessage() {
+    final initError = FirebaseConfig.initializationError;
+    if (initError == null || initError.isEmpty) {
+      return 'Firebase is not ready. Ensure google-services.json is configured.';
+    }
+    return 'Firebase initialization failed. Check configuration.\n$initError';
   }
 }

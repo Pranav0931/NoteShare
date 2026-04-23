@@ -1,10 +1,7 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as p;
 import '../config/college_config.dart';
 import '../models/note.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -17,20 +14,26 @@ class _UploadScreenState extends State<UploadScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _linkController = TextEditingController();
   String? _selectedSubject;
   String? _selectedSemester;
   String? _selectedBranch;
   String? _selectedFileType;
   String? _selectedCategory;
-  bool _fileSelected = false;
-  String _selectedFileName = '';
-  Uint8List? _fileBytes;
+  String _selectedLinkType = 'Google Drive';
   bool _isUploading = false;
+
+  static const List<Map<String, dynamic>> _linkTypes = [
+    {'name': 'Google Drive', 'icon': Icons.drive_file_move_outlined, 'color': Color(0xFF4285F4)},
+    {'name': 'Dropbox', 'icon': Icons.cloud_outlined, 'color': Color(0xFF0061FF)},
+    {'name': 'Direct URL', 'icon': Icons.link, 'color': Color(0xFF136DEC)},
+  ];
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _linkController.dispose();
     super.dispose();
   }
 
@@ -50,7 +53,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildUploadSection(),
+                      _buildLinkSection(),
                       const SizedBox(height: 24),
                       _buildTextField(
                         controller: _titleController,
@@ -159,7 +162,7 @@ class _UploadScreenState extends State<UploadScreen> {
           const SizedBox(width: 16),
           const Expanded(
             child: Text(
-              'Upload Notes',
+              'Share Notes',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -173,107 +176,224 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  Widget _buildUploadSection() {
-    return GestureDetector(
-      onTap: _selectFile,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF136DEC).withOpacity(0.3),
-            width: 2,
-            strokeAlign: BorderSide.strokeAlignInside,
+  // ─── Link Input Section ────────────────────────────────────────
+
+  Widget _buildLinkSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF136DEC).withOpacity(0.15),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF136DEC).withOpacity(0.1),
-                shape: BoxShape.circle,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF136DEC).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.link,
+                  size: 22,
+                  color: Color(0xFF136DEC),
+                ),
               ),
-              child: Icon(
-                _fileSelected ? Icons.description : Icons.cloud_upload_outlined,
-                size: 40,
-                color: const Color(0xFF136DEC),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Add File Link',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Lexend',
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    Text(
+                      'Share via Google Drive, Dropbox, or direct URL',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'Lexend',
+                        color: Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Link type selector chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _linkTypes.map((type) {
+                final isSelected = _selectedLinkType == type['name'];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedLinkType = type['name'] as String),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? (type['color'] as Color).withOpacity(0.1)
+                            : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected
+                              ? (type['color'] as Color).withOpacity(0.4)
+                              : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            type['icon'] as IconData,
+                            size: 18,
+                            color: isSelected
+                                ? type['color'] as Color
+                                : const Color(0xFF6B7280),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            type['name'] as String,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              fontFamily: 'Lexend',
+                              color: isSelected
+                                  ? type['color'] as Color
+                                  : const Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
-            const SizedBox(height: 16),
-            Text(
-              _fileSelected ? _selectedFileName : 'Drag or browse file',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+          ),
+          const SizedBox(height: 14),
+
+          // Link input field
+          TextFormField(
+            controller: _linkController,
+            keyboardType: TextInputType.url,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter a file link';
+              }
+              final uri = Uri.tryParse(value.trim());
+              if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+                return 'Please enter a valid URL (e.g. https://...)';
+              }
+              return null;
+            },
+            decoration: InputDecoration(
+              hintText: _getLinkHint(),
+              hintStyle: TextStyle(
                 fontFamily: 'Lexend',
-                color: _fileSelected ? const Color(0xFF136DEC) : const Color(0xFF1A1A1A),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _fileSelected 
-                  ? 'Tap to change file' 
-                  : 'PDF, Images, DOC, DOCX up to 10MB',
-              style: TextStyle(
+                color: Colors.grey[400],
                 fontSize: 13,
-                fontFamily: 'Lexend',
-                color: Colors.grey[500],
               ),
+              filled: true,
+              fillColor: const Color(0xFFF9FAFB),
+              prefixIcon: Icon(
+                Icons.link,
+                color: Colors.grey[400],
+                size: 20,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF136DEC), width: 2),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.redAccent),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+
+          // Hint text
+          Row(
+            children: [
+              Icon(Icons.info_outline, size: 14, color: Colors.grey[400]),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _getLinkTip(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'Lexend',
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Future<void> _selectFile() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
-        withData: true,
-      );
-      if (result != null && result.files.single.bytes != null) {
-        if (result.files.single.size > 10 * 1024 * 1024) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please choose a file under 10MB')),
-          );
-          return;
-        }
-        setState(() {
-          _fileSelected = true;
-          _selectedFileName = result.files.single.name;
-          _fileBytes = result.files.single.bytes!;
-
-          // Auto-detect file type from extension
-          final ext = p.extension(_selectedFileName).toLowerCase();
-          if (ext == '.pdf') {
-            _selectedFileType = 'PDF';
-          } else if (['.jpg', '.jpeg', '.png'].contains(ext)) {
-            _selectedFileType = 'Image';
-          } else {
-            _selectedFileType = 'Document';
-          }
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not select file. Please try again.')),
-        );
-      }
+  String _getLinkHint() {
+    switch (_selectedLinkType) {
+      case 'Google Drive':
+        return 'https://drive.google.com/file/d/...';
+      case 'Dropbox':
+        return 'https://www.dropbox.com/s/...';
+      default:
+        return 'https://example.com/notes.pdf';
     }
   }
+
+  String _getLinkTip() {
+    switch (_selectedLinkType) {
+      case 'Google Drive':
+        return 'Make sure the file sharing is set to "Anyone with the link"';
+      case 'Dropbox':
+        return 'Use a shared link — change ?dl=0 to ?dl=1 for direct download';
+      default:
+        return 'Paste any publicly accessible URL to your file';
+    }
+  }
+
+  // ─── Shared Form Widgets ───────────────────────────────────────
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -414,14 +534,10 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
+  // ─── Publish Logic ─────────────────────────────────────────────
+
   Future<void> _publishNotes() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_fileSelected || _fileBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file')),
-      );
-      return;
-    }
     if (_selectedSubject == null ||
         _selectedSemester == null ||
         _selectedBranch == null ||
@@ -436,23 +552,10 @@ class _UploadScreenState extends State<UploadScreen> {
     setState(() => _isUploading = true);
 
     try {
-      final service = SupabaseService.instance;
+      final service = FirebaseService.instance;
       final user = service.currentUser;
       final profile = service.currentProfile;
       if (user == null || profile == null) throw Exception('Not logged in');
-
-      // Upload file to storage
-      final ext = p.extension(_selectedFileName).toLowerCase();
-      final storagePath = '${profile.college}/${user.id}/${DateTime.now().millisecondsSinceEpoch}$ext';
-      final contentType = ext == '.pdf'
-          ? 'application/pdf'
-          : ['.jpg', '.jpeg', '.png'].contains(ext)
-              ? ext == '.jpg'
-                  ? 'image/jpeg'
-                  : 'image/${ext.replaceAll('.', '')}'
-              : 'application/octet-stream';
-
-      final fileUrl = await service.uploadFile(storagePath, _fileBytes!, contentType);
 
       // Map UI strings to enums
       final fileType = _selectedFileType == 'PDF'
@@ -469,19 +572,19 @@ class _UploadScreenState extends State<UploadScreen> {
                   : NoteCategory.regular;
 
       final note = Note(
-        id: '', // Generated by Supabase
+        id: '', // Generated by Firestore
         title: _titleController.text.trim(),
         subject: _selectedSubject ?? '',
         semester: _selectedSemester ?? '',
         branch: _selectedBranch ?? profile.branch,
         college: profile.college,
         description: _descriptionController.text.trim(),
-        uploaderId: user.id,
+        uploaderId: user.uid,
         uploaderName: profile.name,
         uploaderAvatar: profile.avatarUrl,
         uploaderBranch: profile.branch,
         uploaderSemester: profile.semester,
-        fileUrl: fileUrl,
+        fileUrl: _linkController.text.trim(),
         fileType: fileType,
         status: NoteStatus.pending,
         category: category,

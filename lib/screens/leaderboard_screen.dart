@@ -3,7 +3,7 @@ import '../models/user.dart';
 import '../widgets/user_avatar.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../config/college_config.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -15,6 +15,7 @@ class LeaderboardScreen extends StatefulWidget {
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
   List<LeaderboardEntry> _leaderboard = [];
   bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -23,12 +24,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Future<void> _loadLeaderboard() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final service = SupabaseService.instance;
+      final service = FirebaseService.instance;
       final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeId;
       _leaderboard = await service.getLeaderboard(college);
-    } catch (_) {}
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -39,8 +44,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _leaderboard.isEmpty
-                ? Center(
+            : _error != null
+                ? _buildErrorState()
+                : _leaderboard.isEmpty
+                    ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -62,6 +69,34 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       bottomNavigationBar: BottomNavBar(
         currentIndex: 3,
         onTap: _onNavTap,
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to load leaderboard',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 16,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadLeaderboard,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -106,7 +141,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Top Contributors \u2022 ${CollegeConfig.getCollegeName(SupabaseService.instance.currentProfile?.college)}',
+                  'Top Contributors \u2022 ${CollegeConfig.getCollegeName(FirebaseService.instance.currentProfile?.college)}',
                   style: const TextStyle(
                     fontSize: 14,
                     fontFamily: 'Lexend',

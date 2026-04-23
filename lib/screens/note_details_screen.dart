@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/note.dart';
 import '../widgets/user_avatar.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class NoteDetailsScreen extends StatefulWidget {
   const NoteDetailsScreen({super.key});
@@ -36,8 +36,8 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
 
   Future<void> _loadData() async {
     try {
-      final service = SupabaseService.instance;
-      final userId = service.currentUser?.id;
+      final service = FirebaseService.instance;
+      final userId = service.currentUser?.uid;
 
       // Check if saved
       if (userId != null) {
@@ -51,8 +51,8 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
   }
 
   Future<void> _handleDownload() async {
-    final service = SupabaseService.instance;
-    final userId = service.currentUser?.id;
+    final service = FirebaseService.instance;
+    final userId = service.currentUser?.uid;
     if (userId == null || _note == null) return;
     if (_note!.fileUrl == null || _note!.fileUrl!.isEmpty) {
       if (mounted) {
@@ -66,6 +66,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
     setState(() => _isDownloading = true);
     try {
       await service.recordDownload(_note!.id, userId);
+      if (!mounted) return;
       setState(() {
         _note = _note!.copyWith(downloadCount: _note!.downloadCount + 1);
       });
@@ -102,8 +103,8 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
   }
 
   Future<void> _handleSave() async {
-    final service = SupabaseService.instance;
-    final userId = service.currentUser?.id;
+    final service = FirebaseService.instance;
+    final userId = service.currentUser?.uid;
     if (userId == null || _note == null) return;
 
     try {
@@ -112,6 +113,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
       } else {
         await service.saveNote(_note!.id, userId);
       }
+      if (!mounted) return;
       setState(() => _isSaved = !_isSaved);
     } catch (_) {}
   }
@@ -778,8 +780,8 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                       }
                       setDialogState(() => submitting = true);
                       try {
-                        final service = SupabaseService.instance;
-                        final userId = service.currentUser?.id;
+                        final service = FirebaseService.instance;
+                        final userId = service.currentUser?.uid;
                         final profile = service.currentProfile;
                         if (userId == null || _note == null) {
                           if (dialogContext.mounted) {
@@ -803,6 +805,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                         if (dialogContext.mounted) Navigator.pop(dialogContext);
                         // Reload reviews
                         final reviews = await service.getReviews(_note!.id);
+                        if (!mounted) return;
                         setState(() => _reviews = reviews);
                       } catch (_) {
                         if (dialogContext.mounted) {

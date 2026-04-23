@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/note.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -13,6 +13,7 @@ class _AdminScreenState extends State<AdminScreen> {
   List<Note> _pendingNotes = [];
   bool _isLoading = true;
   bool _hasAccess = false;
+  String? _error;
 
   @override
   void initState() {
@@ -21,42 +22,46 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _loadPendingNotes() async {
-    if (!SupabaseService.instance.isAdmin) {
+    if (!FirebaseService.instance.isAdmin) {
       if (mounted) {
         setState(() {
           _hasAccess = false;
           _pendingNotes = [];
           _isLoading = false;
+          _error = null;
         });
       }
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _hasAccess = true;
+      _error = null;
     });
     try {
-      _pendingNotes = await SupabaseService.instance.getPendingNotes();
-    } catch (_) {}
+      _pendingNotes = await FirebaseService.instance.getPendingNotes();
+    } catch (e) {
+      _error = e.toString();
+    }
     if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _moderate(Note note, NoteStatus status) async {
     try {
-      await SupabaseService.instance.moderateNote(note.id, status);
+      await FirebaseService.instance.moderateNote(note.id, status);
+      if (!mounted) return;
       setState(() => _pendingNotes.remove(note));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              status == NoteStatus.approved
-                  ? '✓ "${note.title}" approved'
-                  : '✗ "${note.title}" rejected',
-            ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == NoteStatus.approved
+                ? '✓ "${note.title}" approved'
+                : '✗ "${note.title}" rejected',
           ),
-        );
-      }
+        ),
+      );
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -77,6 +82,8 @@ class _AdminScreenState extends State<AdminScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? _buildErrorState()
                   : !_hasAccess
                       ? _buildUnauthorizedState()
                       : _pendingNotes.isEmpty
@@ -90,6 +97,34 @@ class _AdminScreenState extends State<AdminScreen> {
                                     _buildPendingCard(_pendingNotes[i]),
                               ),
                             ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            const Text(
+              'Could not load pending notes',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 16,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadPendingNotes,
+              child: const Text('Retry'),
             ),
           ],
         ),

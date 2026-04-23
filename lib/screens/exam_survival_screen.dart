@@ -3,7 +3,7 @@ import '../models/note.dart';
 import '../widgets/note_card.dart';
 import '../widgets/filter_chip.dart';
 import '../config/college_config.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class ExamSurvivalScreen extends StatefulWidget {
   const ExamSurvivalScreen({super.key});
@@ -30,6 +30,7 @@ class _ExamSurvivalScreenState extends State<ExamSurvivalScreen>
   List<Note> _importantQuestions = [];
   List<Note> _previousYearPapers = [];
   bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -39,9 +40,10 @@ class _ExamSurvivalScreenState extends State<ExamSurvivalScreen>
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final service = SupabaseService.instance;
+      final service = FirebaseService.instance;
       final college = service.currentProfile?.college ?? CollegeConfig.defaultCollegeId;
 
       final results = await Future.wait([
@@ -55,7 +57,10 @@ class _ExamSurvivalScreenState extends State<ExamSurvivalScreen>
       _shortNotes = results[1];
       _importantQuestions = results[2];
       _previousYearPapers = results[3];
-    } catch (_) {}
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+    }
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -108,7 +113,37 @@ class _ExamSurvivalScreenState extends State<ExamSurvivalScreen>
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? _buildErrorState()
                   : _buildTabView(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            const Text(
+              'Could not load exam notes',
+              style: TextStyle(
+                fontFamily: 'Lexend',
+                fontSize: 16,
+                color: Color(0xFF1A1A1A),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadData,
+              child: const Text('Retry'),
             ),
           ],
         ),

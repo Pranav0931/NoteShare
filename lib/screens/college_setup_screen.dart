@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/college_config.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 
 class CollegeSetupScreen extends StatefulWidget {
   const CollegeSetupScreen({super.key});
@@ -218,7 +218,7 @@ class _CollegeSetupScreenState extends State<CollegeSetupScreen> {
   Future<void> _onContinue() async {
     setState(() { _isLoading = true; _error = null; });
     try {
-      final service = SupabaseService.instance;
+      final service = FirebaseService.instance;
       final user = service.currentUser;
       if (user != null) {
         // Find the college ID from the name
