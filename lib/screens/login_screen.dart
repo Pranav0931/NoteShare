@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'Supabase not configured. Pass SUPABASE_URL and SUPABASE_ANON_KEY using --dart-define.');
+      setState(() => _error = 'App configuration is missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
       return;
     }
 
@@ -177,7 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'Supabase not configured. Pass SUPABASE_URL and SUPABASE_ANON_KEY using --dart-define.');
+      setState(() => _error = 'App configuration is missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
       return;
     }
 
@@ -197,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleGoogleAuth() async {
     if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'Supabase not configured. Pass SUPABASE_URL and SUPABASE_ANON_KEY using --dart-define.');
+      setState(() => _error = 'App configuration is missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
       return;
     }
     setState(() { _isLoading = true; _error = null; });
