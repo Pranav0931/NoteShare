@@ -764,6 +764,12 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                   ? null
                   : () async {
                       final comment = commentController.text.trim();
+                      if (selectedRating < 1) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(content: Text('Please select a rating')),
+                        );
+                        return;
+                      }
                       if (comment.isEmpty) {
                         ScaffoldMessenger.of(dialogContext).showSnackBar(
                           const SnackBar(content: Text('Please write a review comment')),
