@@ -764,14 +764,14 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                   ? null
                   : () async {
                       if (selectedRating < 1) {
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        (ScaffoldMessenger.maybeOf(dialogContext) ?? ScaffoldMessenger.of(context)).showSnackBar(
                           const SnackBar(content: Text('Please select a rating')),
                         );
                         return;
                       }
                       final comment = commentController.text.trim();
                       if (comment.isEmpty) {
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        (ScaffoldMessenger.maybeOf(dialogContext) ?? ScaffoldMessenger.of(context)).showSnackBar(
                           const SnackBar(content: Text('Please write a review comment')),
                         );
                         return;
@@ -783,7 +783,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                         final profile = service.currentProfile;
                         if (userId == null || _note == null) {
                           if (dialogContext.mounted) {
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            (ScaffoldMessenger.maybeOf(dialogContext) ?? ScaffoldMessenger.of(context)).showSnackBar(
                               const SnackBar(content: Text('Please sign in to submit a review')),
                             );
                           }
@@ -806,7 +806,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                         setState(() => _reviews = reviews);
                       } catch (_) {
                         if (dialogContext.mounted) {
-                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          (ScaffoldMessenger.maybeOf(dialogContext) ?? ScaffoldMessenger.of(context)).showSnackBar(
                             const SnackBar(content: Text('Failed to submit review')),
                           );
                         }
