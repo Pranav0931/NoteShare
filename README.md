@@ -1,173 +1,291 @@
 # NoteShare
 
-**Study Together** - Share knowledge with your college
+**A modern Flutter app for college students to upload, discover, save, review, and download academic notes inside a trusted campus ecosystem.**
 
-A Flutter mobile application for students to share and discover study notes with their peers. Designed as a **crowdsourced academic library for a single college** — structured for future multi-college expansion. Fully wired to **Supabase** for authentication, database, file storage, and admin moderation.
+NoteShare turns scattered study material into a searchable, moderated, college-first notes library. Students can share PDFs, images, documents, previous year papers, short notes, and important questions, while admins keep the feed clean through Supabase-powered moderation.
 
-## Features
+## Repository Description
 
-- **Splash Screen** - Animated logo with auth state routing
-- **Login/Signup** - Email/password and Google OAuth authentication
-- **College Setup** - Select college, branch, and semester at signup
-- **Home Feed** - Browse approved notes with subject category filters, pull-to-refresh
-- **Exam Survival Mode** - Quick revision: most downloaded, short notes, important questions, previous year papers
-- **Search** - Find notes by subject, semester, branch, and keyword with live Supabase queries
-- **Upload Notes** - Real file picker (PDF, images, documents) with Supabase Storage upload
-- **Note Details** - View, download (opens file URL), save/unsave, write & read peer reviews
-- **User Profile** - Live uploaded/saved/downloaded notes, logout, admin panel access
-- **Leaderboard** - Top contributors ranked by uploads, downloads received, and community score
-- **Admin Moderation Panel** - Approve or reject pending note uploads (admin role only)
-- **Note Trust System** - Each note shows uploader name, branch, and semester
+NoteShare is a production-oriented Flutter and Supabase mobile app for student note sharing, academic resource discovery, campus collaboration, reviews, saved notes, downloads, leaderboards, and admin moderation.
+
+## Tags
+
+`flutter` `dart` `supabase` `mobile-app` `android` `material-design-3` `student-app` `notes-sharing` `college-app` `education` `authentication` `google-login` `supabase-auth` `supabase-database` `supabase-storage` `row-level-security` `file-upload` `admin-panel` `leaderboard` `open-source`
+
+## Highlights
+
+- Email/password authentication, Google OAuth, session persistence, logout, and password reset support
+- Guided college setup with college, branch, and semester profile fields
+- Home feed for approved notes with filters and pull-to-refresh
+- Search by keyword, subject, semester, and branch
+- Upload flow for PDFs, images, DOC, and DOCX files through Supabase Storage
+- Note details with download tracking, save/unsave, ratings, and peer reviews
+- Exam Survival Mode for short notes, important questions, previous year papers, and top downloaded resources
+- Profile screen with uploaded, saved, and downloaded notes
+- College-scoped leaderboard for contributor ranking
+- Admin moderation panel for approving or rejecting uploaded notes
+- Supabase schema with tables, RLS policies, helper functions, storage policies, and triggers
+- Material Design 3 UI with a clean blue academic brand and dark mode foundation
+
+## Screens And Flows
+
+### Authentication
+
+```text
+Splash -> Existing session check -> Login / Signup -> College setup -> Home
+```
+
+Auth is powered by Supabase and supports:
+
+- Email signup
+- Email login
+- Google OAuth login on Android
+- Forgot password flow
+- Session persistence after app restart
+- Profile creation after first login
+- Logout and auth-state routing
+
+### Notes Lifecycle
+
+```text
+Student upload -> Pending review -> Admin approval -> Feed/Search visibility
+```
+
+Uploaded notes are submitted as pending by default. Admin users can review and approve/reject submissions before they appear in public feeds.
+
+### College Model
+
+```text
+College -> Branch -> Semester -> Subject -> Notes
+```
+
+The app is currently configured for a single-college launch and structured for future multi-college expansion.
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Mobile app | Flutter |
+| Language | Dart with null safety |
+| Design system | Material Design 3 |
+| Auth | Supabase Auth |
+| Database | Supabase Postgres |
+| Storage | Supabase Storage |
+| Backend rules | Row Level Security policies |
+| Android build | Gradle / Kotlin Android |
+
+## Core Features
+
+### Student Features
+
+- Create an account or sign in with email/password
+- Continue with Google on Android
+- Complete college profile setup
+- Browse approved notes in the home feed
+- Search academic resources with filters
+- Upload notes and documents
+- Save and unsave useful notes
+- Download note files
+- Write and read peer reviews
+- Track uploaded, saved, and downloaded notes from profile
+- View contributor leaderboard
+
+### Admin Features
+
+- View pending uploads
+- Approve valid notes
+- Reject unsuitable notes
+- Keep the public feed curated and relevant
 
 ## Project Structure
 
-```
+```text
 lib/
-├── main.dart                        # App entry point with routes & Supabase init
-├── config/
-│   ├── college_config.dart          # College, branch, semester, subject constants
-│   └── supabase_config.dart         # Supabase URL & anon key configuration
-├── services/
-│   └── supabase_service.dart        # Supabase backend service (auth, CRUD, storage)
-├── models/
-│   ├── note.dart                    # Note, Review, Download, SavedNote models
-│   └── user.dart                    # User (with role), LeaderboardEntry models
-├── screens/
-│   ├── splash_screen.dart           # Splash → auth check → route
-│   ├── login_screen.dart            # Email/password + Google OAuth
-│   ├── college_setup_screen.dart    # College/Branch/Semester selection → Supabase
-│   ├── home_screen.dart             # Live note feed with save/unsave
-│   ├── exam_survival_screen.dart    # Exam mode (tabbed, filtered, live data)
-│   ├── search_screen.dart           # Real-time search with Supabase filters
-│   ├── upload_screen.dart           # File picker + Supabase Storage upload
-│   ├── note_details_screen.dart     # Download, save, reviews (read & write)
-│   ├── profile_screen.dart          # Live profile, logout, admin access
-│   ├── leaderboard_screen.dart      # College-scoped leaderboard from Supabase
-│   └── admin_screen.dart            # Admin moderation: approve/reject pending notes
-└── widgets/
-    ├── note_card.dart               # Note card with file type & trust badge
-    ├── filter_chip.dart             # Filter chips and dropdowns
-    ├── user_avatar.dart             # User avatar components
-    └── bottom_nav_bar.dart          # Bottom navigation bar
+  main.dart
+  config/
+    college_config.dart
+    supabase_config.dart
+  models/
+    note.dart
+    user.dart
+  screens/
+    admin_screen.dart
+    college_setup_screen.dart
+    exam_survival_screen.dart
+    home_screen.dart
+    leaderboard_screen.dart
+    login_screen.dart
+    note_details_screen.dart
+    profile_screen.dart
+    search_screen.dart
+    splash_screen.dart
+    upload_screen.dart
+  services/
+    supabase_service.dart
+  widgets/
+    bottom_nav_bar.dart
+    filter_chip.dart
+    note_card.dart
+    user_avatar.dart
 
 supabase/
-└── schema.sql                       # Full database schema, RLS policies, functions
+  schema.sql
+
+android/
+  app/
+    build.gradle.kts
+    src/main/AndroidManifest.xml
 ```
 
-## Architecture
+## Supabase Data Model
 
-### College Hierarchy
-```
-College → Branch → Semester → Subject → Notes
-```
-Single college at launch, database structured for easy multi-college expansion.
+The included `supabase/schema.sql` defines:
 
-### Data Flow
-```
-Upload → Pending Review → Admin Approves/Rejects → Approved notes visible in Feed/Search
-```
+- `colleges`
+- `users`
+- `notes`
+- `downloads`
+- `saved_notes`
+- `reviews`
 
-### Auth Flow
-```
-Splash → Check Session → Login (email/Google) → College Setup (first time) → Home
-```
+It also includes:
 
-### Supabase Backend
-- **Authentication**: Email/password signup + Google OAuth
-- **Database Tables**: colleges, users (with role), notes, downloads, saved_notes, reviews
-- **Storage Bucket**: notes-files (PDFs, images, documents)
-- **Row Level Security**: Policies for read/write access, admin moderation
-- **Functions**: increment_download_count, increment_upload_count, recalculate_user_points, is_admin
-
-### User Roles
-| Role    | Capabilities                                  |
-|---------|-----------------------------------------------|
-| student | Upload, download, save, review notes           |
-| admin   | All student capabilities + approve/reject notes |
-
-### Leaderboard Scoring
-```
-Points = (uploads × 10) + (downloads received × 2) + community_score
-```
-
-## Design
-
-- **Primary Color**: #136DEC (Blue)
-- **Accent Color**: #FF6B35 (Exam Survival Mode)
-- **Font**: Lexend
-- **Style**: Modern, clean Material Design 3
-- **Corner Radius**: 8-16px rounded corners
+- Row Level Security policies
+- Profile creation function
+- Upload/download counter functions
+- Leaderboard point recalculation
+- Admin role helper
+- Review rating trigger
+- Storage bucket policies for `notes-files`
 
 ## Getting Started
 
-1. Make sure you have Flutter installed (SDK >=3.0.0)
-2. Clone this repository
-3. Run `flutter pub get` to install dependencies
-4. Set up a Supabase project:
-   - Run `supabase/schema.sql` in the SQL editor
-   - Create a `notes-files` storage bucket (public)
-   - Enable **Email** auth provider
-   - Enable **Google** auth provider (see Google OAuth Setup below)
-5. Update `lib/config/supabase_config.dart` with your Supabase URL and anon key
-6. In Supabase → Authentication → URL Configuration → **Redirect URLs**, add:
+### Prerequisites
+
+- Flutter SDK installed
+- Android Studio or Android SDK installed
+- A Supabase project
+- Google Cloud OAuth credentials if using Google Sign-In
+
+### Setup
+
+1. Clone the repository.
+
+   ```bash
+   git clone https://github.com/Pranav0931/NoteShare.git
+   cd NoteShare
    ```
+
+2. Install dependencies.
+
+   ```bash
+   flutter pub get
+   ```
+
+3. Create a Supabase project.
+
+4. Run the SQL schema from `supabase/schema.sql` in the Supabase SQL editor.
+
+5. Confirm the `notes-files` storage bucket exists and is public.
+
+6. Update Supabase credentials in:
+
+   ```text
+   lib/config/supabase_config.dart
+   ```
+
+7. Add this redirect URL in Supabase Authentication URL settings:
+
+   ```text
    io.supabase.noteshare://login-callback/
    ```
-7. Run `flutter run` to start the app
-8. To make a user an admin, update their `role` to `'admin'` in the users table
 
-## Google OAuth Setup
+8. Run the app.
 
-Google sign-in requires **two separate OAuth clients** in Google Cloud Console:
+   ```bash
+   flutter run
+   ```
 
-### 1. Android Client (for the Flutter app)
-- Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
-- Create OAuth 2.0 Client ID → **Android**
-- Package name: `com.noteshare.noteshare`
-- SHA-1 fingerprint: run the command below to get it
-  ```bash
-  keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+## Google Sign-In Setup
+
+Google login requires configuration in both Google Cloud and Supabase.
+
+### Android OAuth Client
+
+- Create an Android OAuth client in Google Cloud Console
+- Package name:
+
+  ```text
+  com.noteshare.noteshare
   ```
 
-### 2. Web Application Client (for Supabase)
-- Create OAuth 2.0 Client ID → **Web application**
-- Under **Authorized redirect URIs**, add:
-  ```
+- Add the SHA-1 certificate fingerprint for your debug or release keystore
+
+### Web OAuth Client
+
+- Create a Web OAuth client in Google Cloud Console
+- Add this authorized redirect URI:
+
+  ```text
   https://<your-supabase-project-ref>.supabase.co/auth/v1/callback
   ```
-- Copy the **Client ID** and **Client Secret** from this client (not the Android one)
 
-### 3. Configure Supabase
-- Go to Supabase → Authentication → Providers → **Google**
-- Paste the **Web Application** Client ID and Client Secret
-- Save
+### Supabase Provider
 
-> The Android Client ID is used by Google internally to verify the app. The Web Application client is what Supabase uses to exchange tokens.
+- Enable Google provider in Supabase Auth
+- Paste the Web OAuth Client ID and Client Secret
+- Save provider settings
 
-## Dependencies
+## Android Release Notes
 
-- flutter
-- cupertino_icons
-- google_fonts
-- supabase_flutter
-- file_picker
-- path
-- url_launcher
+The Android app is configured with:
 
-## Note File Types
+- Package ID: `com.noteshare.noteshare`
+- Deep link scheme: `io.supabase.noteshare://login-callback/`
+- Internet permission
+- Multidex enabled
+- Release signing support through `android/key.properties`
 
-| Type     | Extensions          |
-|----------|---------------------|
-| PDF      | .pdf                |
-| Image    | .jpg, .png, .jpeg   |
-| Document | .doc, .docx         |
+Example `android/key.properties`:
 
-## Note Categories
+```properties
+storeFile=../upload-keystore.jks
+storePassword=your-store-password
+keyAlias=upload
+keyPassword=your-key-password
+```
 
-- Regular Notes
-- Short Notes
-- Important Questions
-- Previous Year Papers
+Build a release APK:
+
+```bash
+flutter build apk --release
+```
+
+## Design System
+
+- Primary color: `#136DEC`
+- Exam accent: `#FF6B35`
+- Typography: Lexend
+- UI style: clean, rounded, student-friendly Material Design 3
+- Theme: light theme with dark mode foundation
+
+## Suggested GitHub Topics
+
+Use these repository topics for discoverability:
+
+```text
+flutter, dart, supabase, mobile-app, android, material-design-3, student-app, notes-sharing, college-app, education, authentication, google-login, supabase-auth, supabase-database, supabase-storage, row-level-security, file-upload, admin-panel, leaderboard
+```
+
+## Roadmap
+
+- Add production-grade state management
+- Add pagination for large note feeds
+- Add document preview support
+- Add push notifications for approvals and reviews
+- Add richer admin analytics
+- Add multi-college onboarding
+- Add tests for auth, upload, and Supabase service behavior
 
 ## License
 
