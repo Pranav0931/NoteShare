@@ -104,13 +104,13 @@ class _ProfileScreenState extends State<ProfileScreen>
         Navigator.pushReplacementNamed(context, '/home');
         break;
       case 1:
-        Navigator.pushNamed(context, '/search');
+        Navigator.pushReplacementNamed(context, '/search');
         break;
       case 2:
-        Navigator.pushNamed(context, '/upload');
+        Navigator.pushReplacementNamed(context, '/upload');
         break;
       case 3:
-        Navigator.pushNamed(context, '/leaderboard');
+        Navigator.pushReplacementNamed(context, '/leaderboard');
         break;
       case 4:
         // Already on profile
@@ -280,10 +280,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
+                 SizedBox(
                   height: 36,
                   child: OutlinedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile editing will be available soon'),
+                        ),
+                      );
+                    },
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0xFF136DEC)),
                       shape: RoundedRectangleBorder(

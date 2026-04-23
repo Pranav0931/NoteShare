@@ -188,10 +188,11 @@ It also includes:
 
 5. Confirm the `notes-files` storage bucket exists and is public.
 
-6. Update Supabase credentials in:
+6. Set Supabase credentials via Dart defines:
 
-   ```text
-   lib/config/supabase_config.dart
+   ```bash
+   export SUPABASE_URL="https://<your-project-ref>.supabase.co"
+   export SUPABASE_ANON_KEY="<your-anon-key>"
    ```
 
 7. Add this redirect URL in Supabase Authentication URL settings:
@@ -203,7 +204,9 @@ It also includes:
 8. Run the app.
 
    ```bash
-   flutter run
+   flutter run \
+     --dart-define=SUPABASE_URL=$SUPABASE_URL \
+     --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
    ```
 
 ## Google Sign-In Setup
@@ -244,6 +247,7 @@ The Android app is configured with:
 - Deep link scheme: `io.supabase.noteshare://login-callback/`
 - Internet permission
 - Multidex enabled
+- Min SDK: 23
 - Release signing support through `android/key.properties`
 
 Example `android/key.properties`:
@@ -258,7 +262,9 @@ keyPassword=your-key-password
 Build a release APK:
 
 ```bash
-flutter build apk --release
+flutter build apk --release \
+  --dart-define=SUPABASE_URL=$SUPABASE_URL \
+  --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 ```
 
 ## Design System

@@ -12,6 +12,7 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   List<Note> _pendingNotes = [];
   bool _isLoading = true;
+  bool _hasAccess = false;
 
   @override
   void initState() {
@@ -20,7 +21,21 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Future<void> _loadPendingNotes() async {
-    setState(() => _isLoading = true);
+    if (!SupabaseService.instance.isAdmin) {
+      if (mounted) {
+        setState(() {
+          _hasAccess = false;
+          _pendingNotes = [];
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _hasAccess = true;
+    });
     try {
       _pendingNotes = await SupabaseService.instance.getPendingNotes();
     } catch (_) {}
@@ -62,17 +77,19 @@ class _AdminScreenState extends State<AdminScreen> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _pendingNotes.isEmpty
-                      ? _buildEmptyState()
-                      : RefreshIndicator(
-                          onRefresh: _loadPendingNotes,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                            itemCount: _pendingNotes.length,
-                            itemBuilder: (context, i) =>
-                                _buildPendingCard(_pendingNotes[i]),
-                          ),
-                        ),
+                  : !_hasAccess
+                      ? _buildUnauthorizedState()
+                      : _pendingNotes.isEmpty
+                          ? _buildEmptyState()
+                          : RefreshIndicator(
+                              onRefresh: _loadPendingNotes,
+                              child: ListView.builder(
+                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                                itemCount: _pendingNotes.length,
+                                itemBuilder: (context, i) =>
+                                    _buildPendingCard(_pendingNotes[i]),
+                              ),
+                            ),
             ),
           ],
         ),
@@ -163,6 +180,36 @@ class _AdminScreenState extends State<AdminScreen> {
           const SizedBox(height: 8),
           Text(
             'No pending notes to review',
+            style: TextStyle(
+              fontSize: 14,
+              fontFamily: 'Lexend',
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnauthorizedState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.lock_outline, size: 72, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          const Text(
+            'Access denied',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Lexend',
+              color: Color(0xFF1A1A1A),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Admin role is required to moderate notes.',
             style: TextStyle(
               fontSize: 14,
               fontFamily: 'Lexend',

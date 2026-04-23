@@ -92,13 +92,13 @@ class _SearchScreenState extends State<SearchScreen> {
         // Already on search
         break;
       case 2:
-        Navigator.pushNamed(context, '/upload');
+        Navigator.pushReplacementNamed(context, '/upload');
         break;
       case 3:
-        Navigator.pushNamed(context, '/leaderboard');
+        Navigator.pushReplacementNamed(context, '/leaderboard');
         break;
       case 4:
-        Navigator.pushNamed(context, '/profile');
+        Navigator.pushReplacementNamed(context, '/profile');
         break;
     }
   }
@@ -180,7 +180,10 @@ class _SearchScreenState extends State<SearchScreen> {
               vertical: 16,
             ),
           ),
-          onChanged: (_) => setState(_scheduleSearch),
+          onChanged: (_) {
+            setState(() {});
+            _scheduleSearch();
+          },
         ),
       ),
     );

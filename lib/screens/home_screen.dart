@@ -62,7 +62,13 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _notes[idx] = note.copyWith(isSaved: !note.isSaved);
       });
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update saved notes')),
+        );
+      }
+    }
   }
 
   @override
@@ -93,16 +99,16 @@ class _HomeScreenState extends State<HomeScreen> {
         // Already on home
         break;
       case 1:
-        Navigator.pushNamed(context, '/search');
+        Navigator.pushReplacementNamed(context, '/search');
         break;
       case 2:
-        Navigator.pushNamed(context, '/upload');
+        Navigator.pushReplacementNamed(context, '/upload');
         break;
       case 3:
-        Navigator.pushNamed(context, '/leaderboard');
+        Navigator.pushReplacementNamed(context, '/leaderboard');
         break;
       case 4:
-        Navigator.pushNamed(context, '/profile');
+        Navigator.pushReplacementNamed(context, '/profile');
         break;
     }
   }

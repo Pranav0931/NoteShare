@@ -266,7 +266,13 @@ class _UploadScreenState extends State<UploadScreen> {
           }
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not select file. Please try again.')),
+        );
+      }
+    }
   }
 
   Widget _buildTextField({

@@ -13,6 +13,9 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static final RegExp _emailPattern =
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
@@ -107,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = 'Please enter email and password');
       return;
     }
-    if (!email.contains('@')) {
+    if (!_emailPattern.hasMatch(email)) {
       setState(() => _error = 'Please enter a valid email address');
       return;
     }
@@ -120,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'Supabase not configured. Update lib/config/supabase_config.dart');
+      setState(() => _error = 'Supabase not configured. Pass SUPABASE_URL and SUPABASE_ANON_KEY using --dart-define.');
       return;
     }
 
@@ -169,12 +172,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleForgotPassword() async {
     final email = _emailController.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
+    if (email.isEmpty || !_emailPattern.hasMatch(email)) {
       setState(() => _error = 'Enter your email first, then tap Forgot password');
       return;
     }
     if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'Supabase not configured. Update lib/config/supabase_config.dart');
+      setState(() => _error = 'Supabase not configured. Pass SUPABASE_URL and SUPABASE_ANON_KEY using --dart-define.');
       return;
     }
 
@@ -194,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleGoogleAuth() async {
     if (!SupabaseConfig.isConfigured) {
-      setState(() => _error = 'Supabase not configured. Update lib/config/supabase_config.dart');
+      setState(() => _error = 'Supabase not configured. Pass SUPABASE_URL and SUPABASE_ANON_KEY using --dart-define.');
       return;
     }
     setState(() { _isLoading = true; _error = null; });
@@ -217,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Google sign-in failed: ${e.toString()}';
+          _error = _friendlyAuthError(e);
         });
       }
     }
@@ -494,4 +497,3 @@ class _LoginScreenState extends State<LoginScreen> {
     return value is String && value.trim().isNotEmpty ? value.trim() : null;
   }
 }
-
