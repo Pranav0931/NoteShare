@@ -227,7 +227,7 @@ class _CollegeSetupScreenState extends State<CollegeSetupScreen> {
           orElse: () => CollegeConfig.colleges.first,
         );
         await service.updateUserCollege(
-          userId: user.id,
+          userId: user.uid,
           college: collegeEntry['id']!,
           branch: _selectedBranch!,
           semester: _selectedSemester!,
