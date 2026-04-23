@@ -765,7 +765,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                   : () async {
                       final comment = commentController.text.trim();
                       if (comment.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
                           const SnackBar(content: Text('Please write a review comment')),
                         );
                         return;
@@ -776,8 +776,8 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                         final userId = service.currentUser?.id;
                         final profile = service.currentProfile;
                         if (userId == null || _note == null) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                          if (dialogContext.mounted) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
                               const SnackBar(content: Text('Please sign in to submit a review')),
                             );
                           }
@@ -799,8 +799,8 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                         final reviews = await service.getReviews(_note!.id);
                         setState(() => _reviews = reviews);
                       } catch (_) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                        if (dialogContext.mounted) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
                             const SnackBar(content: Text('Failed to submit review')),
                           );
                         }
