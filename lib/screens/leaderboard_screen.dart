@@ -72,16 +72,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         Navigator.pushReplacementNamed(context, '/home');
         break;
       case 1:
-        Navigator.pushNamed(context, '/search');
+        Navigator.pushReplacementNamed(context, '/search');
         break;
       case 2:
-        Navigator.pushNamed(context, '/upload');
+        Navigator.pushReplacementNamed(context, '/upload');
         break;
       case 3:
         // Already on leaderboard
         break;
       case 4:
-        Navigator.pushNamed(context, '/profile');
+        Navigator.pushReplacementNamed(context, '/profile');
         break;
     }
   }

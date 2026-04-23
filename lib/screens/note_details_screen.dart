@@ -17,26 +17,20 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
   List<Review> _reviews = [];
   bool _loadingReviews = true;
   Note? _note;
+  bool _initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_note == null) {
-      _note = ModalRoute.of(context)?.settings.arguments as Note? ??
-          Note(
-            id: '1',
-            title: 'Data Structures and Algorithms Complete Notes',
-            subject: 'Computer Science',
-            semester: '3rd Sem',
-            branch: 'CSE',
-            description: 'Comprehensive notes covering all DSA topics.',
-            uploaderName: 'Rahul Sharma',
-            rating: 4.8,
-            downloadCount: 234,
-            reviewCount: 45,
-            uploadDate: DateTime.now().subtract(const Duration(days: 2)),
-          );
+    if (_initialized) return;
+    _initialized = true;
+
+    final routeArg = ModalRoute.of(context)?.settings.arguments;
+    if (routeArg is Note) {
+      _note = routeArg;
       _loadData();
+    } else {
+      _loadingReviews = false;
     }
   }
 
@@ -60,6 +54,14 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
     final service = SupabaseService.instance;
     final userId = service.currentUser?.id;
     if (userId == null || _note == null) return;
+    if (_note!.fileUrl == null || _note!.fileUrl!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File link is not available for this note')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isDownloading = true);
     try {
@@ -68,12 +70,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
         _note = _note!.copyWith(downloadCount: _note!.downloadCount + 1);
       });
 
-      if (_note!.fileUrl != null && _note!.fileUrl!.isNotEmpty && mounted) {
-        final uri = Uri.parse(_note!.fileUrl!);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      }
+      await _openFileUrl(_note!.fileUrl!);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -82,6 +79,26 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
       }
     }
     if (mounted) setState(() => _isDownloading = false);
+  }
+
+  Future<void> _openFileUrl(String url) async {
+    if (!mounted) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid file URL')),
+      );
+      return;
+    }
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the file link')),
+      );
+    }
   }
 
   Future<void> _handleSave() async {
@@ -101,20 +118,33 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final note = _note ?? (ModalRoute.of(context)?.settings.arguments as Note? ??
-        Note(
-          id: '1',
-          title: 'Data Structures and Algorithms Complete Notes',
-          subject: 'Computer Science',
-          semester: '3rd Sem',
-          branch: 'CSE',
-          description: 'Comprehensive notes covering all DSA topics.',
-          uploaderName: 'Rahul Sharma',
-          rating: 4.8,
-          downloadCount: 234,
-          reviewCount: 45,
-          uploadDate: DateTime.now().subtract(const Duration(days: 2)),
-        ));
+    final note = _note;
+    if (note == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Note Details')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 56, color: Colors.grey),
+                const SizedBox(height: 12),
+                const Text(
+                  'This note could not be loaded.',
+                  style: TextStyle(fontFamily: 'Lexend', fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Go Back'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -230,7 +260,9 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () {},
+              onPressed: _note?.fileUrl != null && _note!.fileUrl!.isNotEmpty
+                  ? () => _openFileUrl(_note!.fileUrl!)
+                  : null,
               child: const Text(
                 'View Full Document',
                 style: TextStyle(
@@ -692,8 +724,8 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
           title: const Text('Write a Review', style: TextStyle(fontFamily: 'Lexend')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -724,19 +756,39 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: submitting
                   ? null
                   : () async {
+                      if (selectedRating < 1) {
+                        (ScaffoldMessenger.maybeOf(dialogContext) ?? ScaffoldMessenger.of(context)).showSnackBar(
+                          const SnackBar(content: Text('Please select a rating')),
+                        );
+                        return;
+                      }
+                      final comment = commentController.text.trim();
+                      if (comment.isEmpty) {
+                        (ScaffoldMessenger.maybeOf(dialogContext) ?? ScaffoldMessenger.of(context)).showSnackBar(
+                          const SnackBar(content: Text('Please write a review comment')),
+                        );
+                        return;
+                      }
                       setDialogState(() => submitting = true);
                       try {
                         final service = SupabaseService.instance;
                         final userId = service.currentUser?.id;
                         final profile = service.currentProfile;
-                        if (userId == null || _note == null) return;
+                        if (userId == null || _note == null) {
+                          if (dialogContext.mounted) {
+                            (ScaffoldMessenger.maybeOf(dialogContext) ?? ScaffoldMessenger.of(context)).showSnackBar(
+                              const SnackBar(content: Text('Please sign in to submit a review')),
+                            );
+                          }
+                          return;
+                        }
 
                         await service.addReview(Review(
                           id: '',
@@ -744,16 +796,24 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                           reviewerId: userId,
                           reviewerName: profile?.name ?? 'Anonymous',
                           rating: selectedRating,
-                          comment: commentController.text.trim(),
+                          comment: comment,
                           date: DateTime.now(),
                         ));
 
-                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
                         // Reload reviews
                         final reviews = await service.getReviews(_note!.id);
                         setState(() => _reviews = reviews);
                       } catch (_) {
-                        setDialogState(() => submitting = false);
+                        if (dialogContext.mounted) {
+                          (ScaffoldMessenger.maybeOf(dialogContext) ?? ScaffoldMessenger.of(context)).showSnackBar(
+                            const SnackBar(content: Text('Failed to submit review')),
+                          );
+                        }
+                      } finally {
+                        if (dialogContext.mounted) {
+                          setDialogState(() => submitting = false);
+                        }
                       }
                     },
               child: submitting
