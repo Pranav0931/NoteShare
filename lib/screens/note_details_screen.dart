@@ -724,8 +724,8 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
           title: const Text('Write a Review', style: TextStyle(fontFamily: 'Lexend')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -756,7 +756,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -794,7 +794,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                           date: DateTime.now(),
                         ));
 
-                        if (ctx.mounted) Navigator.pop(ctx);
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
                         // Reload reviews
                         final reviews = await service.getReviews(_note!.id);
                         setState(() => _reviews = reviews);
@@ -805,7 +805,7 @@ class _NoteDetailsScreenState extends State<NoteDetailsScreen> {
                           );
                         }
                       } finally {
-                        if (ctx.mounted) {
+                        if (dialogContext.mounted) {
                           setDialogState(() => submitting = false);
                         }
                       }

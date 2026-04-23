@@ -165,25 +165,26 @@ class _SearchScreenState extends State<SearchScreen> {
               color: Colors.grey[400],
             ),
             prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    onPressed: () {
-                      _searchController.clear();
-                      _performSearch();
-                    },
-                    icon: Icon(Icons.close, color: Colors.grey[400]),
-                  )
-                : null,
+            suffixIcon: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _searchController,
+              builder: (context, value, _) {
+                if (value.text.isEmpty) return const SizedBox.shrink();
+                return IconButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    _performSearch();
+                  },
+                  icon: Icon(Icons.close, color: Colors.grey[400]),
+                );
+              },
+            ),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 20,
               vertical: 16,
             ),
           ),
-          onChanged: (_) {
-            setState(() {});
-            _scheduleSearch();
-          },
+          onChanged: (_) => _scheduleSearch(),
         ),
       ),
     );

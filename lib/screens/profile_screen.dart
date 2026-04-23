@@ -280,7 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
                 const SizedBox(height: 12),
-                 SizedBox(
+                SizedBox(
                   height: 36,
                   child: OutlinedButton(
                     onPressed: () {
